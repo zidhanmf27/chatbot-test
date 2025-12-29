@@ -409,6 +409,6 @@ st.markdown("""
 <div class="footer-text">
     <p><i class="fas fa-gear"></i> Metode TF-IDF dan Cosine Similarity</p>
     <p style="margin-top:0.25rem;"><i class="fas fa-database"></i> Sumber: <a href="https://opendata.bandung.go.id/dataset/data-rumah-makan-restoran-cafe-di-kota-bandung" target="_blank">Open Data Bandung</a> &nbsp;|&nbsp; Dinas Kebudayaan dan Pariwisata </p>
-    <p style="margin-top:0.5rem; opacity:0.8;"><i class="fas fa-code"></i> Developed by <a href="https://github.com/zidhanmf27" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">zidhanmf</a></p>
+    <p style="margin-top:0.5rem; opacity:0.8;"><i class="fas fa-code"></i> Developed by <a href="https://zidhanmf-portofolio.vercel.app/" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">zidhanmf</a></p>
 </div>
 """, unsafe_allow_html=True)
