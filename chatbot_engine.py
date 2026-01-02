@@ -109,28 +109,78 @@ class ChatbotEngine:
         try:
             # Preprocessing Query: Membersihkan input pengguna (huruf kecil, hapus simbol, stemming)
             processed_query = self.preprocessor.preprocess(query)
+            
+            # VALIDASI TAMBAHAN: Abaikan query 1 huruf (misal 'a')
+            if len(processed_query.strip()) < 2:
+                print(f"[INFO] Query '{processed_query}' diabaikan karena terlalu pendek.")
+                return pd.DataFrame() # Kembalikan DataFrame kosong agar tidak ada hasil
+                
             if not processed_query.strip():
-                return None
+                return pd.DataFrame()
 
             # --- NORMALISASI SINONIM (SEBELUM AUTO-CORRECT) ---
             # Mengubah kata gaul/singkatan menjadi istilah baku di database
             # Contoh: 'cina' -> 'chinese food', 'indo' -> 'masakan indonesia'
             # Mencegah kata seperti 'cina' dikoreksi menjadi 'cinta'
             synonym_map = {
+                # Kategori Makanan Dasar
                 'makanan': 'masakan', 'makan': 'masakan',
+                
+                # Tempat Makan (Variasi Nama)
                 'kafe': 'kafe/kedai kopi', 'cafe': 'kafe/kedai kopi', 
                 'kedai kopi': 'kafe/kedai kopi', 'coffee': 'kafe/kedai kopi',
                 'coffe shop': 'kafe/kedai kopi', 'kopi': 'kafe/kedai kopi',
-                'cina': 'chinese food', 'chinese': 'chinese food', 'china': 'chinese food', 'chinesse': 'chinese food',
-                'jepang': 'japanese food', 'japan': 'japanese food',
-                'korea': 'korean food', 'korean': 'korean food',
-                'barat': 'western food', 'western': 'western food',
+                'resto': 'restoran', 'rm': 'rumah makan',
+                'warung': 'rumah makan', 'warteg': 'warung tegal',
+                'kedai': 'kafe', 'angkringan': 'kafe',
                 
-                # Tambahan Kategori Lain
+                # Kategori Kuliner Internasional
+                'cina': 'chinese food', 'chinese': 'chinese food', 'china': 'chinese food', 'chinesse': 'chinese food',
+                'jepang': 'japanese food', 'japan': 'japanese food', 'jpn': 'japanese food',
+                'korea': 'korean food', 'korean': 'korean food', 'korsel': 'korean food',
+                'barat': 'western food', 'western': 'western food',
                 'arab': 'middle eastern', 'timur tengah': 'middle eastern', 'middle east': 'middle eastern',
-                'indo': 'masakan indonesia', 'indonesia': 'masakan indonesia', 'nusantara': 'masakan indonesia', 'lokal': 'masakan indonesia', 
-                'kafe': 'cafe & dessert', 'cafe': 'cafe & dessert', 'kopi': 'cafe & dessert', 'coffee': 'cafe & dessert', 'ngopi': 'cafe & dessert', 'dessert': 'cafe & dessert',
-                'non halal': 'masakan non halal', 'babi': 'masakan non halal'
+                'thai': 'thailand', 'thailand': 'thailand', 'tom yum': 'thailand',
+                'italia': 'italian', 'italian': 'italian', 'pizza': 'italian', 'pasta': 'italian',
+                
+                # Kategori Kuliner Lokal
+                'indo': 'masakan indonesia', 'indonesia': 'masakan indonesia', 
+                'nusantara': 'masakan indonesia', 'lokal': 'masakan indonesia',
+                'padang': 'masakan padang', 'minang': 'masakan padang',
+                'sunda': 'masakan sunda', 'sundanese': 'masakan sunda',
+                'jawa': 'masakan jawa', 'javanese': 'masakan jawa',
+                
+                # Jenis Makanan Spesifik
+                'seafood': 'makanan laut', 'makanan laut': 'seafood',
+                'bakery': 'toko roti', 'pastry': 'toko roti', 'roti': 'toko roti',
+                'dimsum': 'dim sum', 'dumpling': 'dim sum',
+                'bbq': 'barbeque', 'panggang': 'barbeque', 'bakar': 'barbeque',
+                'hotpot': 'hot pot', 'shabu': 'shabu-shabu',
+                
+                # Jenis Protein/Daging
+                'ayam': 'chicken', 'chicken': 'ayam',
+                'sapi': 'beef', 'beef': 'sapi',
+                'kambing': 'lamb', 'lamb': 'kambing', 'domba': 'lamb',
+                'ikan': 'fish', 'fish': 'ikan',
+                'udang': 'shrimp', 'shrimp': 'udang', 'prawn': 'udang',
+                
+                # Preferensi Diet
+                'vegetarian': 'sayur', 'vegan': 'sayur', 'nabati': 'sayur',
+                'non halal': 'masakan non halal', 'babi': 'masakan non halal', 'pork': 'masakan non halal',
+                'halal': 'halal food',
+                
+                # Minuman & Dessert
+                'ngopi': 'cafe & dessert', 'dessert': 'cafe & dessert',
+                'es krim': 'ice cream', 'ice cream': 'es krim',
+                'jus': 'juice', 'juice': 'jus', 'smoothie': 'juice',
+                
+                # Jenis Hidangan
+                'nasi goreng': 'fried rice', 'fried rice': 'nasi goreng',
+                'mie': 'noodle', 'noodle': 'mie', 'mi': 'mie',
+                'bakso': 'meatball', 'meatball': 'bakso',
+                'soto': 'soup', 'soup': 'soto', 'sup': 'soto',
+                'sate': 'satay', 'satay': 'sate',
+                'gado gado': 'salad', 'salad': 'gado gado'
             }
             
             # Gunakan penggantian berbasis token (kata per kata) untuk akurasi
@@ -145,15 +195,35 @@ class ChatbotEngine:
                 processed_query = re.sub(pattern, replacement, processed_query)
             
             # --- KOREKSI TYPO (AUTO-CORRECT) ---
+            # Whitelist: Kata-kata umum yang JANGAN dikoreksi meskipun tidak ada di vocabulary dataset
+            COMMON_WORDS = {
+                'toko', 'warung', 'rumah', 'makan', 'minum', 'tempat', 'resto', 'restoran', 
+                'kafe', 'cafe', 'kedai', 'jualan', 'dagang',
+                'enak', 'lezat', 'murah', 'mahal', 'bagus', 'keren', 'hits', 'viral',
+                'populer', 'favorit', 'terbaik', 'best', 'recommended', 'rekomen',
+                'di', 'ke', 'dari', 'yang', 'dan', 'dengan', 'buat', 'untuk', 'sama',
+                'date', 'nugas', 'kerja', 'meeting', 'pacaran', 'family', 'keluarga',
+                'pagi', 'siang', 'sore', 'malam', 'bukber', 'sarapan', 'dinner', 'lunch',
+                'pedas', 'manis', 'asin', 'gurih', 'segar', 'panas', 'dingin'
+            }
+            
             corrected_words = []
             query_words = processed_query.split()
             was_corrected = False
             
             for word in query_words:
+                # Cek 1: Apakah kata ada di vocabulary dataset?
                 if word in self.vocabulary:
                     corrected_words.append(word)
+                
+                # Cek 2: Apakah kata adalah kata umum (Whitelist)?
+                elif word in COMMON_WORDS:
+                    corrected_words.append(word) # Jangan koreksi, biarkan apa adanya
+                
+                # Cek 3: Coba koreksi typo dengan threshold ketat (0.90)
                 else:
-                    matches = get_close_matches(word, self.vocabulary, n=1, cutoff=0.85)
+                    # Threshold dinaikkan dari 0.85 ke 0.90 agar tidak "sok tahu"
+                    matches = get_close_matches(word, self.vocabulary, n=1, cutoff=0.90)
                     if matches:
                         suggestion = matches[0]
                         corrected_words.append(suggestion)
@@ -189,7 +259,20 @@ class ChatbotEngine:
                 'malam': 'malam hari 24 jam',
                 'hemat': 'murah terjangkau ekonomis promo',
                 'anak kos': 'murah banyak kenyang hemat',
-                'sehat': 'sayur salad jus organik vegetarian'
+                'sehat': 'sayur salad jus organik vegetarian',
+                
+                # Ekspansi untuk Query Umum (Adjective)
+                'enak': 'recommended populer favorit rating tinggi lezat nikmat',
+                'bagus': 'recommended populer favorit rating tinggi nyaman instagramable',
+                'best': 'recommended populer favorit rating tinggi terbaik',
+                'murah': 'terjangkau ekonomis hemat budget friendly murah meriah',
+                'mahal': 'premium mewah fancy high class eksklusif',
+                
+                # Ekspansi untuk Tren
+                'hits': 'populer viral trending favorit kekinian',
+                'viral': 'populer hits trending favorit ramai',
+                'populer': 'hits viral trending favorit ramai',
+                'terkenal': 'legendaris hits viral populer'
             }
             
             expanded_terms = []
@@ -208,20 +291,64 @@ class ChatbotEngine:
             
             # Normalisasi Sinonim (Late Stage) agar matching kategori berfungsi
             synonym_map_late = {
+                # Kategori Makanan Dasar
                 'makanan': 'masakan', 'makan': 'masakan',
+                
+                # Tempat Makan (Variasi Nama)
                 'kafe': 'kafe/kedai kopi', 'cafe': 'kafe/kedai kopi', 
                 'kedai kopi': 'kafe/kedai kopi', 'coffee': 'kafe/kedai kopi',
                 'coffe shop': 'kafe/kedai kopi', 'kopi': 'kafe/kedai kopi',
-                'cina': 'chinese food', 'chinese': 'chinese food', 'china': 'chinese food', 'chinesse': 'chinese food',
-                'jepang': 'japanese food', 'japan': 'japanese food',
-                'korea': 'korean food', 'korean': 'korean food',
-                'barat': 'western food', 'western': 'western food',
+                'resto': 'restoran', 'rm': 'rumah makan',
+                'warung': 'rumah makan', 'warteg': 'warung tegal',
+                'kedai': 'kafe', 'angkringan': 'kafe',
                 
-                # Tambahan Kategori Lain
+                # Kategori Kuliner Internasional
+                'cina': 'chinese food', 'chinese': 'chinese food', 'china': 'chinese food', 'chinesse': 'chinese food',
+                'jepang': 'japanese food', 'japan': 'japanese food', 'jpn': 'japanese food',
+                'korea': 'korean food', 'korean': 'korean food', 'korsel': 'korean food',
+                'barat': 'western food', 'western': 'western food',
                 'arab': 'middle eastern', 'timur tengah': 'middle eastern', 'middle east': 'middle eastern',
-                'indo': 'masakan indonesia', 'indonesia': 'masakan indonesia', 'nusantara': 'masakan indonesia', 'lokal': 'masakan indonesia', 
-                'kafe': 'cafe & dessert', 'cafe': 'cafe & dessert', 'kopi': 'cafe & dessert', 'coffee': 'cafe & dessert', 'ngopi': 'cafe & dessert', 'dessert': 'cafe & dessert',
-                'non halal': 'masakan non halal', 'babi': 'masakan non halal'
+                'thai': 'thailand', 'thailand': 'thailand', 'tom yum': 'thailand',
+                'italia': 'italian', 'italian': 'italian', 'pizza': 'italian', 'pasta': 'italian',
+                
+                # Kategori Kuliner Lokal
+                'indo': 'masakan indonesia', 'indonesia': 'masakan indonesia', 
+                'nusantara': 'masakan indonesia', 'lokal': 'masakan indonesia',
+                'padang': 'masakan padang', 'minang': 'masakan padang',
+                'sunda': 'masakan sunda', 'sundanese': 'masakan sunda',
+                'jawa': 'masakan jawa', 'javanese': 'masakan jawa',
+                
+                # Jenis Makanan Spesifik
+                'seafood': 'makanan laut', 'makanan laut': 'seafood',
+                'bakery': 'toko roti', 'pastry': 'toko roti', 'roti': 'toko roti',
+                'dimsum': 'dim sum', 'dumpling': 'dim sum',
+                'bbq': 'barbeque', 'panggang': 'barbeque', 'bakar': 'barbeque',
+                'hotpot': 'hot pot', 'shabu': 'shabu-shabu',
+                
+                # Jenis Protein/Daging
+                'ayam': 'chicken', 'chicken': 'ayam',
+                'sapi': 'beef', 'beef': 'sapi',
+                'kambing': 'lamb', 'lamb': 'kambing', 'domba': 'lamb',
+                'ikan': 'fish', 'fish': 'ikan',
+                'udang': 'shrimp', 'shrimp': 'udang', 'prawn': 'udang',
+                
+                # Preferensi Diet
+                'vegetarian': 'sayur', 'vegan': 'sayur', 'nabati': 'sayur',
+                'non halal': 'masakan non halal', 'babi': 'masakan non halal', 'pork': 'masakan non halal',
+                'halal': 'halal food',
+                
+                # Minuman & Dessert
+                'ngopi': 'cafe & dessert', 'dessert': 'cafe & dessert',
+                'es krim': 'ice cream', 'ice cream': 'es krim',
+                'jus': 'juice', 'juice': 'jus', 'smoothie': 'juice',
+                
+                # Jenis Hidangan
+                'nasi goreng': 'fried rice', 'fried rice': 'nasi goreng',
+                'mie': 'noodle', 'noodle': 'mie', 'mi': 'mie',
+                'bakso': 'meatball', 'meatball': 'bakso',
+                'soto': 'soup', 'soup': 'soto', 'sup': 'soto',
+                'sate': 'satay', 'satay': 'sate',
+                'gado gado': 'salad', 'salad': 'gado gado'
             }
             for synonym, replacement in synonym_map_late.items():
                 query_normalized = query_normalized.replace(synonym, replacement)
@@ -371,7 +498,13 @@ class ChatbotEngine:
             if top_recommendations.empty:
                 print(f"[INFO] Fallback search for: {query}")
                 keyword = query.lower()
-                mask = self.df['metadata_tfidf'].str.lower().str.contains(keyword, na=False)
+                
+                # Cegah pencarian fallback untuk kata kunci terlalu pendek (misal 'a')
+                if len(keyword) < 3:
+                    print(f"[INFO] Fallback dilewati: Kata kunci harus minimal 3 karakter.")
+                    mask = pd.Series([False] * len(self.df))
+                else:
+                    mask = self.df['metadata_tfidf'].str.lower().str.contains(keyword, na=False)
                 
                 if mask.any():
                     fallback_df = self.df[mask].copy()

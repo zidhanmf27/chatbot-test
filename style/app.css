@@ -303,7 +303,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {
   background: var(--card-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
   padding: 1.75rem 2.25rem;
   border-radius: 18px;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
@@ -347,13 +347,15 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {
 
 .stTextInput input {
   background-color: var(--input-bg);
-  border: 1px solid #1e293b !important; /* Gunakan border gelap solid (Dark Slate) untuk menghilangkan kesan putih */
+  border: 1px solid transparent !important;
   border-radius: 10px;
   color: var(--text-primary);
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
   height: 4rem;
-  caret-color: white !important; /* Warna kursor ketik putih di dark mode */
+  caret-color: white !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 
@@ -384,6 +386,15 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {
 [data-testid="textInputRootElement"]:focus-within {
   border-color: transparent !important;
   box-shadow: none !important;
+}
+
+/* Force Remove Border from Inner Input Container */
+[data-testid="textInputRootElement"] > div {
+    border: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background-color: var(--input-bg) !important;
 }
 
 
@@ -465,21 +476,21 @@ div[data-testid="element-container"]:has(.kirim-container) + div[data-testid="el
 
 /* 2. Tombol Cari (Biru - Sama seperti Kirim) */
 /* Menargetkan tombol pencarian bawah dan sekunder */
-div[data-testid="element-container"]:has(.cari-container) + div[data-testid="element-container"] .stButton button,
+div[data-testid="element-container"]:has(.cari-container-bottom) + div[data-testid="element-container"] .stButton button,
 .bottom-search-wrapper .stButton button {
   background: rgb(136, 151, 250) !important;
   box-shadow: 0 4px 12px rgba(136, 151, 250, 0.3) !important;
   color: white !important;
 }
 
-div[data-testid="element-container"]:has(.cari-container) + div[data-testid="element-container"] .stButton button:hover,
+div[data-testid="element-container"]:has(.cari-container-bottom) + div[data-testid="element-container"] .stButton button:hover,
 .bottom-search-wrapper .stButton button:hover {
   background: rgb(110, 128, 245) !important;
   box-shadow: 0 6px 16px rgba(136, 151, 250, 0.45) !important;
   transform: translateY(-2px);
 }
 
-div[data-testid="element-container"]:has(.cari-container) + div[data-testid="element-container"] .stButton button::before,
+div[data-testid="element-container"]:has(.cari-container-bottom) + div[data-testid="element-container"] .stButton button::before,
 .bottom-search-wrapper .stButton button::before {
   content: "\f002";
   font-family: "Font Awesome 6 Free";
@@ -559,6 +570,13 @@ div[data-testid="element-container"]:has(.load-more-wrapper) + div[data-testid="
   color: white !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2) !important;
+}
+
+div[data-testid="element-container"]:has(.load-more-wrapper) + div[data-testid="element-container"] .stButton button::before {
+  content: "\f067";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  margin-right: 8px;
 }
 
 /* Target kelas caching spesifik jika mereka membutuhkan override tombol */

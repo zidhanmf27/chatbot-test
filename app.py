@@ -16,7 +16,7 @@ st.set_page_config(
 
 # --- Fungsi Loading Resource ---
 @st.cache_resource(show_spinner=False)
-def load_chatbot(dataset_path):
+def load_chatbot_v2(dataset_path):
     """Memuat instance chatbot engine dengan caching agar tidak di-reload setiap interaksi"""
     return ChatbotEngine(dataset_path)
 
@@ -41,7 +41,7 @@ if 'chatbot' not in st.session_state:
         if not os.path.exists(dataset_path):
             st.error("Dataset not found!")
             st.stop()
-        st.session_state.chatbot = load_chatbot(dataset_path)
+        st.session_state.chatbot = load_chatbot_v2(dataset_path)
         if 'messages' not in st.session_state:
             st.session_state.messages = []
         if 'show_scroll_btn' not in st.session_state:
@@ -122,10 +122,9 @@ with st.sidebar:
         st.rerun()
 
 
-
-
-    # --- Bagian Preferensi (Collapsible) ---
-    with st.expander("PREFERENSI", expanded=True):
+    # --- Bagian Preferensi Harga (Collapsible) ---
+    st.markdown('<div class="sidebar-header"><i class="fas fa-dollar-sign"></i></div>', unsafe_allow_html=True)
+    with st.expander("Preferensi Harga", expanded=True):
         selected_price = st.radio(
             "RANGE HARGA",
             ["Semua", "Murah", "Sedang", "Mahal"],
@@ -134,6 +133,7 @@ with st.sidebar:
         )
 
     # --- Bagian Kategori Kuliner (Collapsible) ---
+    st.markdown('<div class="sidebar-header"><i class="fas fa-utensils"></i></div>', unsafe_allow_html=True)
     with st.expander("KATEGORI KULINER", expanded=True):
         if total_umkm > 0:
             top_cats = st.session_state.chatbot.df['kategori'].value_counts().head(10)
@@ -227,13 +227,13 @@ with st.form(key='search_form'):
     st.markdown('<div class="quick-search-container">', unsafe_allow_html=True)
     q1, q2, q3, q4 = st.columns(4)
     with q1:
-        quick_kopi = st.form_submit_button("Kopi Murah", type="secondary", use_container_width=True)
+        quick_kopi = st.form_submit_button("Kopi", type="secondary", use_container_width=True)
     with q2:
-        quick_ramen = st.form_submit_button("Ramen Pedas", type="secondary", use_container_width=True)
+        quick_ramen = st.form_submit_button("Ramen", type="secondary", use_container_width=True)
     with q3:
         quick_sunda = st.form_submit_button("Masakan Sunda", type="secondary", use_container_width=True)
     with q4:
-        quick_roti = st.form_submit_button("Toko Roti", type="secondary", use_container_width=True)
+        quick_roti = st.form_submit_button("Roti", type="secondary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -370,7 +370,11 @@ if len(st.session_state.messages) > 0:
                 
                 st.markdown('</div>', unsafe_allow_html=True) 
             else:
-                st.info("Tidak ada rekomendasi yang ditemukan untuk kriteria ini.")
+                st.markdown("""
+                <div style="max-width: 820px; width: 95%; margin: 0 auto; padding: 0.75rem 1.25rem; background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; color: #ef4444; display: flex; align-items: center; gap: 0.75rem; font-weight: 500;">
+                    <i class="fas fa-circle-xmark" style="font-size: 1.1rem;"></i> Tidak ada rekomendasi yang ditemukan untuk kriteria ini.
+                </div>
+                """, unsafe_allow_html=True)
 
 # --- Bagian Pencarian Ulang di Bawah ---
 if len(st.session_state.messages) > 0:
@@ -422,6 +426,6 @@ st.markdown("""
 <div class="footer-text">
     <p><i class="fas fa-gear"></i> Metode TF-IDF dan Cosine Similarity</p>
     <p style="margin-top:0.25rem;"><i class="fas fa-database"></i> Sumber: <a href="https://opendata.bandung.go.id/dataset/data-rumah-makan-restoran-cafe-di-kota-bandung" target="_blank">Open Data Bandung</a> &nbsp;|&nbsp; Dinas Kebudayaan dan Pariwisata </p>
-    <p style="margin-top:0.5rem; opacity:0.8;"><i class="fas fa-code"></i> Developed by <a href="https://zidhanmf-portofolio.vercel.app/" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">zidhanmf</a></p>
+    <p style="margin-top:0.5rem; opacity:0.8;"><i class="fas fa-code"></i> Developed by <a href="https://zidhanmf-portofolio.vercel.app/" target="_blank" style="color: var(--accent-blue); font-weight: 600;">zidhanmf</a></p>
 </div>
 """, unsafe_allow_html=True)
