@@ -36,8 +36,8 @@ class TextPreprocessor:
         text = text.lower() # Case Folding
         text = re.sub(r'http\S+|www\S+|https\S+', '', text) # Hapus URL
         text = re.sub(r'\S+@\S+', '', text) # Hapus Email
-        text = re.sub(r'\d+', '', text) # Hapus Angka
-        text = re.sub(r'[^a-z\s]', ' ', text) # Hapus Tanda Baca
+        # text = re.sub(r'\d+', '', text) # Hapus Angka (DINONAKTIFKAN: Banyak nama UMKM pakai angka)
+        text = re.sub(r'[^a-z0-9\s]', ' ', text) # Hapus Tanda Baca (Sisakan huruf & angka)
         text = re.sub(r'\s+', ' ', text) # Hapus Spasi Ganda
         return text.strip()
     

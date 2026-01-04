@@ -16,7 +16,7 @@ st.set_page_config(
 
 # --- Fungsi Loading Resource ---
 @st.cache_resource(show_spinner=False)
-def load_chatbot_v2(dataset_path):
+def load_chatbot_v3(dataset_path):
     """Memuat instance chatbot engine dengan caching agar tidak di-reload setiap interaksi"""
     return ChatbotEngine(dataset_path)
 
@@ -35,13 +35,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Inisialisasi State Aplikasi (Session Management) ---
-if 'chatbot' not in st.session_state:
+if 'chatbot_engine_v3' not in st.session_state:
     dataset_path = os.path.join('dataset', 'data-kuliner-umkm-optimized.csv')
     try:
         if not os.path.exists(dataset_path):
             st.error("Dataset not found!")
             st.stop()
-        st.session_state.chatbot = load_chatbot_v2(dataset_path)
+        st.session_state.chatbot_engine_v3 = load_chatbot_v3(dataset_path)
         if 'messages' not in st.session_state:
             st.session_state.messages = []
         if 'show_scroll_btn' not in st.session_state:
@@ -59,7 +59,7 @@ if 'theme' not in st.session_state:
 # --- Tampilan Sidebar ---
 with st.sidebar:
     try:
-        total_umkm = len(st.session_state.chatbot.df)
+        total_umkm = len(st.session_state.chatbot_engine_v3.df)
     except:
         total_umkm = 0
         
@@ -136,7 +136,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header"><i class="fas fa-utensils"></i></div>', unsafe_allow_html=True)
     with st.expander("KATEGORI KULINER", expanded=True):
         if total_umkm > 0:
-            top_cats = st.session_state.chatbot.df['kategori'].value_counts().head(10)
+            top_cats = st.session_state.chatbot_engine_v3.df['kategori'].value_counts().head(10)
             st.markdown("<div class='sidebar-cat-list'>", unsafe_allow_html=True)
             for cat, count in top_cats.items():
                 st.markdown(f"<div class='sidebar-cat-item'><span>{cat}</span><span>{count}</span></div>", unsafe_allow_html=True)
@@ -155,36 +155,6 @@ with st.sidebar:
         </ul>
     </div>
     """, unsafe_allow_html=True)
-
-# # Hero Section
-# import base64
-
-# def get_img_as_base64(file_path):
-#     with open(file_path, "rb") as f:
-#         data = f.read()
-#     return base64.b64encode(data).decode()
-
-# try:
-#     icon_base64 = get_img_as_base64("style/icon.png")
-#     icon_img_tag = f'<img src="data:image/png;base64,{icon_base64}" alt="Icon" class="hero-icon" style="width: 100px; height: 100px; object-fit: contain;">'
-# except Exception:
-#     icon_img_tag = '<i class="fas fa-utensils"></i>' # Fallback jika gambar gagal load
-
-# # Hero Section
-# st.markdown(f"""
-# <div class="hero-container">
-#     <div class="hero-icon">
-#         {icon_img_tag}
-#     </div>
-#     <div class="hero-title">
-#         Jelajahi Rasa<br>
-#         <span class="hero-title-blue">Kota Bandung</span>
-#     </div>
-#     <div class="hero-subtitle">
-#         Temukan kuliner terbaik dengan bantuan Chatbot.
-#     </div>
-# </div>
-# """, unsafe_allow_html=True)
 
 # --- Bagian Utama (Main Content) ---
 # Hero Section
@@ -259,21 +229,24 @@ if final_query:
     st.session_state.messages.append({"role": "user", "content": final_query})
     
     price_map = {"Semua": "Semua", "Murah": "Murah", "Sedang": "Sedang", "Mahal": "Mahal"}
-    backend_price = price_map.get(selected_price, "Semua")
+    backend_price = price_map.get(st.session_state.get("price_filter", "Semua"), "Semua")
     
     try:
         with st.spinner('Sedang mencari rekomendasi kuliner...'):
-            recommendations = st.session_state.chatbot.get_recommendations(
+            recommendations, warning_msg = st.session_state.chatbot_engine_v3.get_recommendations(
                 final_query, 
                 price_filter=backend_price,
                 top_n=50
             )
         
+        # Warning sudah diextract langsung dari tuple
+        
         st.session_state.messages.append({
             "role": "bot",
             "content": final_query,
             "full_recommendations": recommendations,
-            "display_count": 5
+            "display_count": 5,
+            "warning": warning_msg
         })
         
     except Exception as e:
@@ -311,6 +284,20 @@ if len(st.session_state.messages) > 0:
             display_count = message.get('display_count', 5)
             
             if full_recs is not None and not full_recs.empty:
+
+
+                
+                # [BARU] Tampilkan warning jika ada (dari field terpisah)
+                warning_msg = message.get('warning')
+                if warning_msg:
+                    # [STYLE UPDATE] Menyamakan lebar warning dengan kartu rekomendasi
+                    st.markdown(f"""
+                    <div style="width: 95%; max-width: 820px; margin: 0 auto 1rem auto; padding: 0.75rem 1rem; background-color: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 8px; color: #eab308; font-size: 0.9rem; display: flex; align-items: start; gap: 0.5rem;">
+                        <i class="fas fa-exclamation-triangle" style="margin-top: 3px;"></i>
+                        <span>{warning_msg}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
                 current_view = full_recs.iloc[:display_count]
                 
                 for _, row in current_view.iterrows():
@@ -405,9 +392,6 @@ if len(st.session_state.messages) > 0:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Scroll to Top Button (Conditional Render) ---
-# Tombol HANYA muncul jika ada output rekomendasi yang DITAMPILKAN lebih dari 5
-# (Artinya user sudah mengklik 'Lebih Banyak', sehingga display_count > 5)
 # --- Scroll to Top Button (Conditional Render) ---
 # Tombol muncul jika user telah mengklik 'Lebih Banyak' ATAU sudah melakukan pencarian lebih dari sekali
 if st.session_state.get('show_scroll_btn', False) or len(st.session_state.messages) > 2:

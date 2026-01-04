@@ -101,6 +101,8 @@ class ChatbotEngine:
         
         if not query or not isinstance(query, str):
             raise ValueError("Query harus berupa string yang tidak kosong!")
+            
+        recommendation_warning = None # Default warning string
         
         query = query.strip()
         if not query:
@@ -110,13 +112,23 @@ class ChatbotEngine:
             # Preprocessing Query: Membersihkan input pengguna (huruf kecil, hapus simbol, stemming)
             processed_query = self.preprocessor.preprocess(query)
             
-            # VALIDASI TAMBAHAN: Abaikan query 1 huruf (misal 'a')
-            if len(processed_query.strip()) < 2:
-                print(f"[INFO] Query '{processed_query}' diabaikan karena terlalu pendek.")
-                return pd.DataFrame() # Kembalikan DataFrame kosong agar tidak ada hasil
-                
-            if not processed_query.strip():
-                return pd.DataFrame()
+            # --- PRE-CHECK EXACT MATCH ---
+            # Cek apakah raw query adalah nama restoran EXACT match.
+            # Ini penting untuk kasus "Ini Itu Cafe" dimana semua katanya terhapus jadi stopword.
+            import re
+            def normalize_raw(text):
+                return str(text).lower().strip().replace("   ", " ").replace("  ", " ")
+            
+            raw_match_exists = (self.df['nama_rumah_makan'].apply(normalize_raw) == normalize_raw(query)).any()
+            
+            # VALIDASI TAMBAHAN: Abaikan query 1 huruf KECUALI jika ada exact match
+            if not raw_match_exists:
+                if len(processed_query.strip()) < 2:
+                    print(f"[INFO] Query '{processed_query}' diabaikan karena terlalu pendek.")
+                    return pd.DataFrame(), None # Kembalikan DataFrame kosong dan No Warning
+                    
+                if not processed_query.strip():
+                    return pd.DataFrame(), None
 
             # --- NORMALISASI SINONIM (SEBELUM AUTO-CORRECT) ---
             # Mengubah kata gaul/singkatan menjadi istilah baku di database
@@ -127,9 +139,9 @@ class ChatbotEngine:
                 'makanan': 'masakan', 'makan': 'masakan',
                 
                 # Tempat Makan (Variasi Nama)
-                'kafe': 'kafe/kedai kopi', 'cafe': 'kafe/kedai kopi', 
-                'kedai kopi': 'kafe/kedai kopi', 'coffee': 'kafe/kedai kopi',
-                'coffe shop': 'kafe/kedai kopi', 'kopi': 'kafe/kedai kopi',
+                'kafe': 'kafe/kedai kopi cafe & dessert', 'cafe': 'kafe/kedai kopi cafe & dessert', 
+                'kedai kopi': 'kafe/kedai kopi cafe & dessert', 'coffee': 'kafe/kedai kopi cafe & dessert',
+                'coffe shop': 'kafe/kedai kopi cafe & dessert', 'kopi': 'kafe/kedai kopi cafe & dessert',
                 'resto': 'restoran', 'rm': 'rumah makan',
                 'warung': 'rumah makan', 'warteg': 'warung tegal',
                 'kedai': 'kafe', 'angkringan': 'kafe',
@@ -223,7 +235,7 @@ class ChatbotEngine:
                 # Cek 3: Coba koreksi typo dengan threshold ketat (0.90)
                 else:
                     # Threshold dinaikkan dari 0.85 ke 0.90 agar tidak "sok tahu"
-                    matches = get_close_matches(word, self.vocabulary, n=1, cutoff=0.90)
+                    matches = get_close_matches(word, self.vocabulary, n=1, cutoff=0.82)
                     if matches:
                         suggestion = matches[0]
                         corrected_words.append(suggestion)
@@ -295,9 +307,9 @@ class ChatbotEngine:
                 'makanan': 'masakan', 'makan': 'masakan',
                 
                 # Tempat Makan (Variasi Nama)
-                'kafe': 'kafe/kedai kopi', 'cafe': 'kafe/kedai kopi', 
-                'kedai kopi': 'kafe/kedai kopi', 'coffee': 'kafe/kedai kopi',
-                'coffe shop': 'kafe/kedai kopi', 'kopi': 'kafe/kedai kopi',
+                'kafe': 'cafe', 
+                'kedai kopi': 'cafe', 'coffee': 'cafe',
+                'coffe shop': 'cafe', 'kopi': 'cafe', 'ngopi': 'cafe',
                 'resto': 'restoran', 'rm': 'rumah makan',
                 'warung': 'rumah makan', 'warteg': 'warung tegal',
                 'kedai': 'kafe', 'angkringan': 'kafe',
@@ -308,8 +320,8 @@ class ChatbotEngine:
                 'korea': 'korean food', 'korean': 'korean food', 'korsel': 'korean food',
                 'barat': 'western food', 'western': 'western food',
                 'arab': 'middle eastern', 'timur tengah': 'middle eastern', 'middle east': 'middle eastern',
-                'thai': 'thailand', 'thailand': 'thailand', 'tom yum': 'thailand',
-                'italia': 'italian', 'italian': 'italian', 'pizza': 'italian', 'pasta': 'italian',
+                'thai': 'thailand', 'tom yum': 'thailand',
+                'italia': 'italian', 'pizza': 'italian', 'pasta': 'italian',
                 
                 # Kategori Kuliner Lokal
                 'indo': 'masakan indonesia', 'indonesia': 'masakan indonesia', 
@@ -392,6 +404,18 @@ class ChatbotEngine:
             try:
                 alamat_words = ' '.join(self.df['alamat'].dropna().astype(str)).lower()
                 location_keywords = set([w for w in alamat_words.split() if len(w) >= 4 and w.isalpha()])
+                
+                # [CRITICAL FIX] Hapus kata umum kuliner dari deteksi lokasi
+                # Agar "kopi" tidak dianggap sebagai filter lokasi yang menyebabkan penalti massal
+                ignore_location_terms = {
+                    'kopi', 'cafe', 'kafe', 'resto', 'warung', 'makan', 'minum',
+                    'jalan', 'kota', 'bandung', 'kecamatan', 'kelurahan', 'nomor',
+                    'utara', 'selatan', 'barat', 'timur', 'tengah', 'jawa',
+                    'coffee', 'shop', 'store', 'food', 'beverage',
+                    'bakso', 'mie', 'nasi', 'soto', 'ayam', 'bebek', 'sapi'
+                }
+                location_keywords = location_keywords - ignore_location_terms
+                
                 additional_filters.update(location_keywords)
             except: pass
             
@@ -446,23 +470,129 @@ class ChatbotEngine:
                 # Mode Fleksibel: Menggunakan TF-IDF jika tidak ada match pasti
                 if matched_category or matched_tipe_pengunjung:
                     if matched_category:
-                        category_mask = self.df['kategori'].astype(str).str.lower() == matched_category
-                        similarity_scores[category_mask] += 0.5
+                         # [SMART CATEGORY MATCHING]
+                         if any(x in matched_category for x in ['kopi', 'cafe', 'kafe']):
+                             category_mask = self.df['kategori'].astype(str).str.lower().str.contains('kopi|cafe|kafe|coffee', na=False, regex=True)
+                         else:
+                             category_mask = self.df['kategori'].astype(str).str.lower() == matched_category
+                         similarity_scores[category_mask] += 20.0 
                     
                     if matched_tipe_pengunjung:
                         tipe_mask = self.df['tipe_pengunjung'].astype(str).str.lower().str.contains(matched_tipe_pengunjung, na=False, regex=False)
-                        similarity_scores[tipe_mask] += 0.5
+                        similarity_scores[tipe_mask] += 5.0
+                
+                # [MANUAL CAFE INTENT]
+                # Jika kategori tidak terdeteksi via nama, tapi ada kata 'cafe' (hasil normalisasi kopi/kafe),
+                # paksa boost kategori cafe.
+                elif 'cafe' in query_normalized:
+                     print("[INFO] Cafe intent detected (manual fallback)")
+                     category_mask = self.df['kategori'].astype(str).str.lower().str.contains('kopi|cafe|kafe|coffee', na=False, regex=True)
+                     similarity_scores[category_mask] += 20.0
                     
                     # Boosting Lokasi: Memberikan prioritas pada lokasi yang cocok
-                    if len(final_active_filters) > 0:
-                        for flt in final_active_filters:
-                            addr_mask = self.df['alamat'].astype(str).str.lower().str.contains(flt, na=False)
-                            if addr_mask.any():
-                                print(f"[BOOST] Location match: '{flt}'")
-                                similarity_scores[addr_mask] += 2.0
+            # [PERBAIKAN LOKASI] Definisi sinonim dipindahkan ke sini agar bisa dipakai untuk filter lokasi
+            # Contoh: User cari "Dago", sistem juga harus boost alamat "Jl. Ir. H. Juanda"
             
-            # --- BOOSTING HARGA: Menyesuaikan skor berdasarkan preferensi harga ---
-            BOOST_FACTOR = 2.0
+            # Mapping manual untuk expansion, karena boost_synonyms di atas formatnya Concept Mapping
+            location_expansion = {
+                'dago': ['juanda', 'bukit pakar', 'dago'],
+                'bandung': ['bdg', 'paris van java'],
+                'braga': ['sumur bandung', 'asia afrika']
+            }
+
+            # Boosting Lokasi: Memberikan prioritas pada lokasi yang cocok
+            if len(final_active_filters) > 0:
+                for flt in final_active_filters:
+                    # Ambil variasi kata lokasi (misal: dago -> [dago, juanda])
+                    search_terms = location_expansion.get(flt, [flt])
+                    
+                    # Buat mask gabungan: Benar jika salah satu kata kunci lokasi ditemukan di alamat
+                    addr_mask = pd.Series([False] * len(self.df), index=self.df.index)
+                    for term in search_terms:
+                        term_mask = self.df['alamat'].astype(str).str.lower().str.contains(term, na=False)
+                        addr_mask = addr_mask | term_mask
+                    
+                    # Boost Match (Stronger: +15.0) -> Prioritas Mutlak Lokasi
+                    similarity_scores[addr_mask] += 15.0
+                    
+                    # Penalty Mismatch (STRICT Location Filter)
+                    if addr_mask.sum() > 0: 
+                        similarity_scores[~addr_mask] -= 50.0
+                        print(f"[DEBUG] Applied Location Boost (+15.0) & Penalty (-50.0) for '{flt}' (Expanded: {search_terms})")
+            # --- CONTENT RELEVANCE BOOST ---
+            # Prioritizing content (Name/Menu) over price filters
+            price_terms = {'murah', 'mahal', 'sedang', 'terjangkau', 'hemat', 'premium', 'mewah', 'budget', 'promo', 'murmer'}
+            common_stopwords = {'yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'dengan', 'atau', 'ini', 'itu', 'makan', 'minum', 'tempat', 'warung', 'resto'}
+            ignore_terms = price_terms | common_stopwords
+            
+            core_words = [w for w in query_lower.split() if w not in ignore_terms and len(w) > 2]
+            
+            if core_words:
+                # [BARU] Perluasan sinonim khusus untuk boosting
+                # Agar pencarian "kopi" juga men-boost "koffie", "coffee", "cafe"
+                
+                # [REVISI BOOSTING] Concept Mapping untuk mencegah over-boosting
+                # boost_synonyms sudah didefinisikan sebelumnya di blok Location Boost
+                
+                # Definisi ulang Concept Map (untuk grouping skor)
+                concept_map = {
+                    'kopi': 'COFFEE', 'coffee': 'COFFEE', 'cafe': 'COFFEE', 'kafe': 'COFFEE', 'koffie': 'COFFEE', 'kopii': 'COFFEE', 'bean': 'COFFEE',
+                    'dago': 'LOCATION_DAGO', 'juanda': 'LOCATION_DAGO', 'pakar': 'LOCATION_DAGO',
+                    'murah': 'PRICE_LOW', 'terjangkau': 'PRICE_LOW', 'hemat': 'PRICE_LOW'
+                }
+                
+                processed_concepts = set()
+                
+                # Gabungkan core_words dengan synonym expansion
+                # Kita perlu synonym dictionary sederhana untuk expansion ini (word -> [list of synonyms])
+                # Gunakan ulang location_expansion atau buat simple map
+                simple_synonyms = {
+                     'kopi': ['koffie', 'coffee', 'cafe', 'kafe', 'bean'],
+                     'cafe': ['coffee', 'kopi'],
+                     'dago': ['juanda', 'bukit pakar']
+                }
+
+                all_search_terms = set(core_words)
+                for word in core_words:
+                    if word in simple_synonyms:
+                        all_search_terms.update(simple_synonyms[word])
+                
+                for word in all_search_terms:
+                    # Tentukan konsep kata ini
+                    concept = concept_map.get(word, word) # Jika tidak ada di map, gunakan kata itu sendiri sebagai konsep unik
+                    
+                    if concept in processed_concepts:
+                        continue # Skip jika konsep ini sudah di-boost sebelumnya
+                    
+                    # Boost +3.0 per CONCEPT found in Name OR Menu
+                    import re
+                    safe_word = re.escape(word)
+                    
+                    name_mask = self.df['nama_rumah_makan'].astype(str).str.lower().str.contains(safe_word, na=False)
+                    menu_mask = self.df['menu'].astype(str).str.lower().str.contains(safe_word, na=False)
+                    
+                    anywhere_mask = name_mask | menu_mask
+                    
+                    if anywhere_mask.any():
+                        similarity_scores[anywhere_mask] += 3.0
+                        processed_concepts.add(concept) # Tandai konsep sudah diproses
+                        # print(f"[DEBUG] Applied Boost (+3.0) for concept '{concept}' (trigger: '{word}')")
+                
+                # EXACT PHRASE MATCH BOOST (+5.0)
+                # Ensure specific menu items (e.g., "nasi goreng pedas") rank highest
+                if len(core_words) >= 2:
+                    phrase = " ".join(core_words)
+                    safe_phrase = re.escape(phrase)
+                    
+                    phrase_name_mask = self.df['nama_rumah_makan'].astype(str).str.lower().str.contains(safe_phrase, na=False)
+                    phrase_menu_mask = self.df['menu'].astype(str).str.lower().str.contains(safe_phrase, na=False)
+                    
+                    phrase_mask = phrase_name_mask | phrase_menu_mask
+                    similarity_scores[phrase_mask] += 5.0
+
+            # --- BOOSTING HARGA ---
+            # Lower boost factor used as tie-breaker (0.5) -> UPDATED to 5.0 for stronger sorting
+            BOOST_FACTOR = 5.0
             
             is_murah = any(k in query_lower for k in ['murah', 'terjangkau', 'hemat', 'low budget'])
             is_sedang = any(k in query_lower for k in ['sedang', 'standar', 'menengah', 'reasonable'])
@@ -473,19 +603,83 @@ class ChatbotEngine:
                 elif price_filter == "Menengah": is_murah, is_sedang, is_mahal = False, True, False
                 elif price_filter == "Mahal": is_murah, is_sedang, is_mahal = False, False, True
             
-            if not strict_mode_activated:
-                if is_murah:
-                    mask = self.df['kategori_harga'].astype(str).str.contains('Murah', case=False, na=False)
-                    similarity_scores[mask] *= BOOST_FACTOR
-                elif is_mahal:
-                    mask = self.df['kategori_harga'].astype(str).str.contains('Mahal', case=False, na=False)
-                    similarity_scores[mask] *= BOOST_FACTOR
-                elif is_sedang:
-                    mask = self.df['kategori_harga'].astype(str).str.contains('Sedang', case=False, na=False)
-                    similarity_scores[mask] *= BOOST_FACTOR
+            # Apply price boosting only if relevant content found
+            relevant_mask = similarity_scores > -500 # Apply to all not-penalized items
+            
+            if is_murah:
+                mask = self.df['kategori_harga'].astype(str).str.contains('Murah', case=False, na=False)
+                similarity_scores[mask & relevant_mask] += BOOST_FACTOR 
+            elif is_mahal:
+                mask = self.df['kategori_harga'].astype(str).str.contains('Mahal', case=False, na=False)
+                similarity_scores[mask & relevant_mask] += BOOST_FACTOR
+            elif is_sedang:
+                mask = self.df['kategori_harga'].astype(str).str.contains('Sedang', case=False, na=False)
+                similarity_scores[mask & relevant_mask] += BOOST_FACTOR
             
         except Exception as e:
             raise Exception(f"Error menghitung similarity: {str(e)}")
+        
+        # --- EXACT/FUZZY NAME MATCH BOOST (PRIORITY TERTINGGI) ---
+        # PINDAHKAN KE LUAR try-except agar tidak ter-interrupt
+        # Gunakan vectorized operation untuk performa
+        try:
+            from rapidfuzz import fuzz
+            import re
+            
+            # Fungsi normalisasi teks
+            def normalize_text(text):
+                text = str(text).lower().strip()
+                text = re.sub(r'\s+', ' ', text)
+                text = text.replace("'", "'").replace("`", "'")
+                return text
+            
+            query_clean = normalize_text(query)
+            query_len = len(query_clean)
+            
+            # Vectorized exact match check (JAUH LEBIH CEPAT)
+            df_names_normalized = self.df['nama_rumah_makan'].apply(normalize_text)
+            exact_matches = df_names_normalized == query_clean
+            
+            if exact_matches.any():
+                # Ada exact match - berikan boost SANGAT BESAR untuk override penalty
+                # CRITICAL: Boost harus > 999 untuk mengalahkan strict mode penalty (-999)
+                exact_matches_array = exact_matches.values
+                
+                # BOOST 2000.0 untuk memastikan exact match SELALU menang
+                similarity_scores[exact_matches_array] += 2000.0
+                
+                matched_names = self.df.loc[exact_matches, 'nama_rumah_makan'].tolist()
+                for name in matched_names:
+                    print(f"[EXACT MATCH 100%] '{name}' matched query '{query}'")
+            
+            # Fuzzy match hanya jika tidak ada exact match DAN query cukup panjang
+            elif query_len >= 8:
+                # Hanya cek top 100 berdasarkan TF-IDF untuk efisiensi
+                top_indices = similarity_scores.argsort()[-100:][::-1]
+                
+                for idx in top_indices:
+                    nama_resto = normalize_text(self.df.iloc[idx]['nama_rumah_makan'])
+                    
+                    # Hitung similarity
+                    similarity_ratio = fuzz.ratio(query_clean, nama_resto)
+                    partial_ratio = fuzz.partial_ratio(query_clean, nama_resto)
+                    best_ratio = max(similarity_ratio, partial_ratio)
+                    
+                    if best_ratio >= 95.0:
+                        similarity_scores[idx] += 8.0
+                        print(f"[NEAR MATCH {best_ratio:.1f}%] '{self.df.iloc[idx]['nama_rumah_makan']}' matched query '{query}'")
+                        break  # Hanya ambil 1 best fuzzy match
+                    elif best_ratio >= 90.0 and query_len >= 12:
+                        similarity_scores[idx] += 5.0
+                        print(f"[GOOD MATCH {best_ratio:.1f}%] '{self.df.iloc[idx]['nama_rumah_makan']}' matched query '{query}'")
+                        break
+                        
+        except Exception as e:
+            print(f"[WARNING] Fuzzy matching error: {str(e)}")
+            # Lanjutkan tanpa fuzzy matching jika error
+            pass
+        
+
         
         try:
             result_df = self.df.copy()
@@ -512,7 +706,39 @@ class ChatbotEngine:
                     top_recommendations = fallback_df.head(top_n)
                     print(f"[SUCCESS] Fallback found {len(top_recommendations)} results.")
             
-            return top_recommendations
+            # --- INTELLIGENT WARNING SYSTEM (REVISED) ---
+            target_price = None
+            if is_murah: target_price = "Murah"
+            elif is_mahal: target_price = "Mahal"
+            elif is_sedang: target_price = "Sedang"
+
+            if target_price and not top_recommendations.empty:
+                if 'kategori_harga' in top_recommendations.columns:
+                    # Intelligent Warning System based on Relevance Score
+                    # Filter out matches that are significantly less relevant than the top result
+                    
+                    max_score = top_recommendations['similarity_score'].max()
+                    # Threshold: Score must be within 3.0 points of the top score (Relaxed)
+                    relevance_threshold = max(0, max_score - 3.0) 
+                    
+                    # Check Top 5
+                    checked_recs = top_recommendations.head(5)
+                    relevant_in_top5 = checked_recs[checked_recs['similarity_score'] >= relevance_threshold]
+                    
+                    matched_count = relevant_in_top5['kategori_harga'].astype(str).str.contains(target_price, case=False, na=False).sum()
+                    
+                    # Check Top 50 for available data
+                    relevant_in_all = top_recommendations[top_recommendations['similarity_score'] >= relevance_threshold]
+                    matched_all_count = relevant_in_all['kategori_harga'].astype(str).str.contains(target_price, case=False, na=False).sum()
+
+                    # [REVISI INTELLIGENT] Warning hanya muncul jika Benar-benar TIDAK ADA di Top 5
+                    # User complain jika ada 1 hasil tapi dibilang terbatas.
+                    if matched_count == 0:
+                        category_msg = f" Kategori {matched_category.title()}" if matched_category else ""
+                        recommendation_warning = f"Maaf, kami tidak menemukan rekomendasi yang pas untuk '{query}' dengan harga '{target_price}' di top 5 hasi. Berikut adalah rekomendasi terbaik yang kami temukan."
+                        print(f"[DEBUG] Warning set: No Matches in Top 5 (Top5={matched_count}, Total={matched_all_count})")
+            
+            return top_recommendations, recommendation_warning
             
         except Exception as e:
             raise Exception(f"Error memproses hasil rekomendasi: {str(e)}")
