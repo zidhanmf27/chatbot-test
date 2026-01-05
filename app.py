@@ -35,13 +35,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Inisialisasi State Aplikasi (Session Management) ---
-if 'chatbot_engine_v3' not in st.session_state:
+if 'chatbot_engine_v4' not in st.session_state:
     dataset_path = os.path.join('dataset', 'data-kuliner-umkm-optimized.csv')
     try:
         if not os.path.exists(dataset_path):
             st.error("Dataset not found!")
             st.stop()
-        st.session_state.chatbot_engine_v3 = load_chatbot_v3(dataset_path)
+        st.session_state.chatbot_engine_v4 = load_chatbot_v3(dataset_path)
         if 'messages' not in st.session_state:
             st.session_state.messages = []
         if 'show_scroll_btn' not in st.session_state:
@@ -59,7 +59,7 @@ if 'theme' not in st.session_state:
 # --- Tampilan Sidebar ---
 with st.sidebar:
     try:
-        total_umkm = len(st.session_state.chatbot_engine_v3.df)
+        total_umkm = len(st.session_state.chatbot_engine_v4.df)
     except:
         total_umkm = 0
         
@@ -136,7 +136,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header"><i class="fas fa-utensils"></i></div>', unsafe_allow_html=True)
     with st.expander("KATEGORI KULINER", expanded=True):
         if total_umkm > 0:
-            top_cats = st.session_state.chatbot_engine_v3.df['kategori'].value_counts().head(10)
+            top_cats = st.session_state.chatbot_engine_v4.df['kategori'].value_counts().head(10)
             st.markdown("<div class='sidebar-cat-list'>", unsafe_allow_html=True)
             for cat, count in top_cats.items():
                 st.markdown(f"<div class='sidebar-cat-item'><span>{cat}</span><span>{count}</span></div>", unsafe_allow_html=True)
@@ -216,13 +216,13 @@ if 'temp_query' in st.session_state and st.session_state.temp_query:
 elif submitted and user_input_val:
     final_query = user_input_val
 elif quick_kopi:
-    final_query = "kopi murah"
+    final_query = "kopi"
 elif quick_ramen:
-    final_query = "ramen pedas"
+    final_query = "ramen"
 elif quick_sunda:
     final_query = "masakan sunda"
 elif quick_roti:
-    final_query = "toko roti"
+    final_query = "roti"
 
 if final_query:
     st.session_state.show_scroll_btn = False # Reset tombol setiap kali searching baru
@@ -233,7 +233,7 @@ if final_query:
     
     try:
         with st.spinner('Sedang mencari rekomendasi kuliner...'):
-            recommendations, warning_msg = st.session_state.chatbot_engine_v3.get_recommendations(
+            recommendations, warning_msg = st.session_state.chatbot_engine_v4.get_recommendations(
                 final_query, 
                 price_filter=backend_price,
                 top_n=50

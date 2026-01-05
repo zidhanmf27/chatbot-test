@@ -442,7 +442,8 @@ class ChatbotEngine:
                     'jalan', 'kota', 'bandung', 'kecamatan', 'kelurahan', 'nomor',
                     'utara', 'selatan', 'barat', 'timur', 'tengah', 'jawa',
                     'coffee', 'shop', 'store', 'food', 'beverage',
-                    'bakso', 'mie', 'nasi', 'soto', 'ayam', 'bebek', 'sapi'
+                    'bakso', 'mie', 'nasi', 'soto', 'ayam', 'bebek', 'sapi',
+                    'sunda', 'jepang', 'korea', 'china', 'barat' # Pencegahan konflik nama jalan vs kategori
                 }
                 location_keywords = location_keywords - ignore_location_terms
                 
