@@ -27,63 +27,6 @@ Sistem secara proaktif memberi tahu jika hasil pencarian terbatas untuk preferen
 - **Interactive Sidebar:** Filter harga dan kategori yang mudah diakses.
 - **Responsive Design:** Tampilan tetap rapi di berbagai ukuran layar.
 
-## 🔄 Alur Sistem Berjalan
-
-Berikut adalah alur kerja sistem chatbot dari input pengguna hingga menampilkan rekomendasi:
-
-```plantuml
-@startuml
-skinparam activity {
-  BackgroundColor #E0F7FA
-  BorderColor #006064
-  ArrowColor #006064
-}
-
-|Pengguna|
-start
-:Mengakses Website Chatbot;
-:Memasukkan kalimat pencarian
-(misal: "Cari tmpt nugas murah di Dgo");
-
-|Sistem Chatbot|
-:Menerima input teks;
-
-:Preprocessing Teks
-(Case Folding, Cleaning, Tokenizing, 
-Stopword Removal, Stemming);
-
-partition "Smart Text Processing" {
-    :Normalisasi Sinonim
-    (misal: "kafe", "ngopi" -> "cafe");
-    
-    :Deteksi & Koreksi Typo (Auto-Correct)
-    (misal: "tmpt"->"tempat", "Dgo"->"dago");
-    
-    :Ekspansi Semantik (Semantic Expansion)
-    (misal: "nugas" ditambah konteks "wifi, stopkontak");
-}
-
-:Menghitung Bobot Kata (TF-IDF);
-:Menghitung Kemiripan (Cosine Similarity)
-antara input user & database UMKM;
-
-partition "Filtering & Ranking" {
-    :Cek Mode Filter (Strict vs Flexible);
-    :Boost Lokasi & Exact Match;
-    :Mengurutkan skor kemiripan tertinggi;
-    :Mengambil 5 rekomendasi teratas;
-}
-
-:Menampilkan hasil rekomendasi
-(Nama, Alamat, Kategori, Menu, Harga, Deskripsi);
-
-|Pengguna|
-:Menerima daftar rekomendasi
-yang akurat & relevan;
-stop
-@enduml
-```
-
 ### Penjelasan Tahapan:
 
 1. **Input Pengguna**: User memasukkan query dalam bahasa natural (misal: "kopi murah di dago").
@@ -103,38 +46,6 @@ stop
    - Memberikan boost besar untuk exact match (+2000 poin)
 
 6. **Output**: Menampilkan Top 5 rekomendasi dengan informasi lengkap dan link Google Maps.
-
-## 🚀 Cara Menjalankan
-
-### Prasyarat
-- Python 3.8 atau lebih baru.
-- Pip (Python Package Installer).
-
-### Instalasi
-1. Clone repository ini:
-   ```bash
-   git clone https://github.com/username/chatbot-kuliner.git
-   cd chatbot-kuliner
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Jalankan aplikasi:
-   ```bash
-   streamlit run app.py
-   ```
-
-## 📂 Struktur Proyek
-
-- `app.py`: Main application file (Frontend Streamlit).
-- `chatbot_engine.py`: Core logic for search engine, ranking, and warning system.
-- `preprocessing.py`: Text cleaning and preparation utilities.
-- `dataset/`: Folder containing the culinary dataset (`data-kuliner-umkm-optimized.csv`).
-- `style/`: CSS files for custom UI styling.
-- `assets/`: Images and static resources.
 
 ## 🛠️ Teknologi
 
