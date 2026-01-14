@@ -1,8 +1,8 @@
 # ============================================================================
-# CHATBOT ENGINE - CORE RECOMMENDATION LOGIC
+# MESIN CHATBOT - LOGIKA REKOMENDASI UTAMA
 # ============================================================================
-# Logic Utama Chatbot: Menangani loading data, perhitungan TF-IDF,
-# Cosine Similarity, dan logika rekomendasi (Strict/Flexible).
+# Menangani pemuatan data, perhitungan TF-IDF, Cosine Similarity,
+# dan logika rekomendasi (Strict/Flexible).
 # ============================================================================
 
 import re
@@ -232,7 +232,7 @@ SIMPLE_SYNONYMS = {
 
 
 # ============================================================================
-# CHATBOT ENGINE CLASS
+# KELAS MESIN CHATBOT
 # ============================================================================
 
 class ChatbotEngine:
@@ -313,7 +313,7 @@ class ChatbotEngine:
             all_text = " ".join(self.df['metadata_tfidf'].astype(str).tolist())
             self.vocabulary = set(all_text.lower().split())
             
-            # [BARU] Membangun Priority Vocabulary (Kategori & Keyword Penting)
+            # Membangun Priority Vocabulary (Kategori & Kata Kunci Penting)
             self.priority_vocabulary = set()
             
             # 1. Masukkan semua kategori unik
@@ -333,7 +333,7 @@ class ChatbotEngine:
             print("[INFO] Menganalisis dataset untuk mengisi Priority Vocabulary...")
             
             def extract_top_keywords(column, n=50):
-                """Helper internal untuk mengambil top n kata dari kolom"""
+                """Fungsi pembantu untuk mengambil n kata teratas dari kolom"""
                 if column not in self.df.columns:
                     return []
                 
@@ -417,7 +417,7 @@ class ChatbotEngine:
             raise Exception(f"Error membuat TF-IDF matrix: {str(e)}")
     
     # ========================================================================
-    # HELPER METHODS UNTUK QUERY PROCESSING
+    # METODE PEMBANTU UNTUK PEMROSESAN QUERY
     # ========================================================================
     
     def _normalize_raw_text(self, text):
@@ -462,10 +462,8 @@ class ChatbotEngine:
                 if matches:
                     suggestion = matches[0] # Default: ambil yang paling mirip score-nya
                     
-                    # [SMART CORRECTION]
-                    # Cek apakah ada kandidat yang lebih "penting" (masuk Priority Vocabulary)
-                    # Ini mengatasi masalah "kopu" -> "kopo" (nama jalan) vs "kopi" (kategori)
-                    # Kita ingin memprioritaskan "kopi".
+                    # Koreksi Cerdas: Prioritaskan kata yang lebih penting
+                    # Contoh: "kopu" -> "kopi" (kategori) bukan "kopo" (nama jalan)
                     for match in matches:
                         if match in self.priority_vocabulary:
                             suggestion = match
@@ -559,7 +557,7 @@ class ChatbotEngine:
         return detected_raw
     
     # ========================================================================
-    # HELPER METHODS UNTUK SCORING
+    # METODE PEMBANTU UNTUK PENILAIAN SKOR
     # ========================================================================
     
     def _apply_category_matching(self, similarity_scores, query_normalized, has_additional_filter):
@@ -685,7 +683,7 @@ class ChatbotEngine:
                 if concept in processed_concepts:
                     continue
                 
-                # Cek apakah ini kata lokasi (untuk menghindari Double Boost nama jalan)
+                # Cek kata lokasi untuk menghindari boost ganda pada nama jalan
                 is_loc = word in LOCATION_EXPANSION or word in ['dago', 'braga', 'riau', 'juanda']
                 boost_val = 2.0 if is_loc else 10.0
                 
@@ -754,7 +752,7 @@ class ChatbotEngine:
             query_clean = normalize_text(query)
             query_len = len(query_clean)
             
-            # Exact match check
+            # Cek kecocokan persis
             df_names_normalized = self.df['nama_rumah_makan'].apply(normalize_text)
             exact_matches = df_names_normalized == query_clean
             
@@ -766,7 +764,7 @@ class ChatbotEngine:
                 for name in matched_names:
                     print(f"[EXACT MATCH 100%] '{name}' matched query '{query}'")
             
-            # Fuzzy match
+            # Cek kecocokan fuzzy
             elif query_len >= 8:
                 top_indices = similarity_scores.argsort()[-100:][::-1]
                 
@@ -791,7 +789,7 @@ class ChatbotEngine:
         return similarity_scores
     
     def _generate_warning_message(self, top_recommendations, is_murah, is_sedang, is_mahal, query, matched_category):
-        """Generate intelligent warning message"""
+        """Membuat pesan peringatan cerdas"""
         target_price = None
         if is_murah:
             target_price = "Murah"
@@ -815,7 +813,7 @@ class ChatbotEngine:
         return None
     
     # ========================================================================
-    # MAIN RECOMMENDATION METHOD
+    # METODE REKOMENDASI UTAMA
     # ========================================================================
     
     def get_recommendations(self, query, price_filter=None, top_n=5):
@@ -831,25 +829,22 @@ class ChatbotEngine:
         # Pre-check exact match
         raw_match_exists = self._check_exact_match(query)
         
-        # [OPTIMASI PIPELINE] Menyeluruh: Clean -> Correct -> Normalize -> Extract -> Stem
+        # Pipeline Optimasi: Bersihkan -> Koreksi -> Normalisasi -> Ekstrak -> Stemming
         try:
-            # 1. Cleaning Dasar & Case Folding (Belum Stemming)
+            # 1. Pembersihan dasar dan case folding (belum stemming)
             query_clean = self.preprocessor.clean_text(query)
             
-            # 2. Auto-correct Typo (Bekerja pada kata asli)
-            # Hasil: "kopu" -> "kopi", "dgo" -> "dago"
+            # 2. Koreksi otomatis typo pada kata asli
+            # Contoh: "kopu" -> "kopi", "dgo" -> "dago"
             query_corrected = self._apply_autocorrect(query_clean)
             
-            # 3. Normalisasi Sinonim
-            # Dilakukan setelah koreksi agar kata yang sudah benar bisa di-mapping
+            # 3. Normalisasi sinonim setelah koreksi typo
             query_normalized = self._apply_synonym_normalization(query_corrected.lower())
             
-            # 4. Ekspansi Semantik
-            # Menggunakan query yang sudah dikoreksi & dinormalisasi
+            # 4. Ekspansi semantik pada query yang sudah dikoreksi
             query_expanded = self._apply_semantic_expansion(query_normalized, query_normalized)
             
-            # 5. Preprocessing Final (Stemming & Stopwords Removal)
-            # Dilakukan paling akhir untuk kebutuhan TF-IDF
+            # 5. Preprocessing akhir (Stemming dan penghapusan stopwords) untuk TF-IDF
             processed_query = self.preprocessor.preprocess(query_expanded)
             
             # Validasi query terlalu pendek
@@ -860,15 +855,14 @@ class ChatbotEngine:
             if not processed_query.strip():
                 return pd.DataFrame(), None, query_corrected
                 
-            # Update query reference untuk return & warning
-            # Gunakan query_corrected agar user melihat kata asli mereka (yg sudah dibenarkan typonya)
-            # BUKAN query_normalized yang sudah diubah jadi kategori (kopi -> cafe & dessert)
+            # Gunakan query yang sudah dikoreksi untuk ditampilkan ke user
+            # Bukan query yang sudah dinormalisasi ke kategori
             query = query_corrected
             
         except Exception as e:
             raise Exception(f"Error preprocessing query pipeline: {str(e)}")
         
-        # Perhitungan Similarity & Filter
+        # Perhitungan kemiripan dan filter
         try:
             # Vectorization
             query_vector = self.vectorizer.transform([processed_query])
@@ -898,21 +892,17 @@ class ChatbotEngine:
                 similarity_scores, query_lower, price_filter
             )
             
-            # FINAL COMBO BOOST
-            # Deteksi harga aktual dari hasil _apply_price_boost
+            # Boost kombinasi sempurna: Kategori + Harga (Lokasi opsional)
             detected_price = "Murah" if is_murah else ("Sedang" if is_sedang else ("Mahal" if is_mahal else None))
-            
-            # Update: Boost aktif jika Kategori + Harga cocok, LOKASI OPSIONAL
-            # Jika user cari "Cafe Mahal", kita boost semua cafe mahal.
             if matched_category and detected_price:
                 self._apply_perfect_match_boost(similarity_scores, matched_category, active_filters, detected_price)
             
         except Exception as e:
             raise Exception(f"Error menghitung similarity: {str(e)}")
-        # Apply exact name matching
+        # Terapkan pencocokan nama persis
         similarity_scores = self._apply_exact_name_matching(similarity_scores, query)
         
-        # Generate results
+        # Buat hasil rekomendasi
         try:
             result_df = self.df.copy()
             result_df['similarity_score'] = similarity_scores
@@ -920,7 +910,7 @@ class ChatbotEngine:
             top_recommendations = result_df.nlargest(top_n, 'similarity_score')
             top_recommendations = top_recommendations[top_recommendations['similarity_score'] > 0]
             
-            # Fallback search
+            # Pencarian cadangan
             if top_recommendations.empty:
                 print(f"[INFO] Fallback search for: {query}")
                 keyword = query.lower()
@@ -935,7 +925,7 @@ class ChatbotEngine:
                     fallback_df['similarity_score'] = 0.5
                     top_recommendations = fallback_df.head(top_n)
             
-            # Generate warning
+            # Buat pesan peringatan
             warning_msg = self._generate_warning_message(
                 top_recommendations, is_murah, is_sedang, is_mahal, query, matched_category
             )
@@ -947,7 +937,7 @@ class ChatbotEngine:
 
     def _apply_perfect_match_boost(self, similarity_scores, matched_category, active_filters, price_filter):
         """Memberikan boost besar untuk perfect match (Kategori + Lokasi + Harga)"""
-        # Init masks
+        # Inisialisasi mask filter
         cat_mask = pd.Series([False] * len(self.df), index=self.df.index)
         
         # 1. Mask Kategori
@@ -988,7 +978,7 @@ class ChatbotEngine:
             similarity_scores[perfect_mask] += 50.0 # BUMP UP TO TOP!
             
     # ========================================================================
-    # UTILITY METHODS
+    # METODE UTILITAS
     # ========================================================================
     
     def get_statistics(self):

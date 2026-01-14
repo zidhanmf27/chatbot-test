@@ -1,7 +1,7 @@
 # ============================================================================
 # CHATBOT KULINER UMKM KOTA BANDUNG
 # ============================================================================
-# User Interface Streamlit
+# Antarmuka Pengguna Streamlit
 # ============================================================================
 
 import os
@@ -28,7 +28,7 @@ st.set_page_config(
 
 
 # ============================================================================
-# FUNGSI HELPER
+# FUNGSI PEMBANTU
 # ============================================================================
 
 @st.cache_resource(show_spinner=False)
@@ -64,11 +64,11 @@ def get_category_icon(category_name):
         if any(keyword in cat_lower for keyword in keywords):
             return icon
     
-    return "fa-utensils"  # Default icon
+    return "fa-utensils"  # Ikon default
 
 
 def inject_theme_script(theme):
-    """Inject JavaScript untuk mengubah tema secara real-time"""
+    """Menyisipkan JavaScript untuk mengubah tema secara real-time"""
     timestamp = int(time.time() * 1000)
     components.html(
         f"""
@@ -107,7 +107,7 @@ if 'chatbot_engine' not in st.session_state:
     dataset_path = os.path.join('dataset', 'dataset-kuliner-umkm-optimized.csv')
     try:
         if not os.path.exists(dataset_path):
-            st.error("Dataset not found!")
+            st.error("Dataset tidak ditemukan!")
             st.stop()
         st.session_state.chatbot_engine = load_chatbot(dataset_path)
         if 'messages' not in st.session_state:
@@ -115,7 +115,7 @@ if 'chatbot_engine' not in st.session_state:
         if 'show_scroll_btn' not in st.session_state:
             st.session_state.show_scroll_btn = False
     except Exception as e:
-        st.error(f"Error loading chatbot: {e}")
+        st.error(f"Error memuat chatbot: {e}")
         st.stop()
 
 # Inisialisasi tema
@@ -299,8 +299,8 @@ if final_query:
         
         st.session_state.messages.append({
             "role": "bot",
-            "content": final_query, # Tetap simpan input asli user untuk history chat
-            "corrected_content": corrected_query, # Simpan query hasil koreksi untuk display
+            "content": final_query, # Simpan input asli user untuk riwayat chat
+            "corrected_content": corrected_query, # Simpan query hasil koreksi untuk tampilan
             "full_recommendations": recommendations,
             "display_count": 5,
             "warning": warning_msg
