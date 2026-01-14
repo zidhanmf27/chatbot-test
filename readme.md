@@ -54,56 +54,6 @@ Sistem secara proaktif memberi tahu jika hasil pencarian terbatas untuk preferen
 
 6. **Output**: Menampilkan Top 5 rekomendasi dengan informasi lengkap dan link Google Maps.
 
-## 📂 Struktur Proyek
-
-```
-chatbot-kuliner/
-├── app.py                          # Main application file (Frontend Streamlit)
-├── chatbot_engine.py               # Core logic for search engine, ranking, and warning system
-├── preprocessing.py                # Text cleaning and preparation utilities
-├── requirements.txt                # Python dependencies
-├── utility/
-│   ├── precompute_dataset.py      # Script untuk optimasi dataset
-│   └── metadata.py                # Metadata management
-├── dataset/
-│   └── data-kuliner-umkm-optimized.csv  # Culinary dataset
-├── style/
-│   └── custom.css                 # CSS files for custom UI styling
-└── assets/                        # Images and static resources
-```
-
-## 🚀 Instalasi
-
-### Prasyarat
-
-- Python 3.8 atau lebih tinggi
-- pip (Python package manager)
-
-### Langkah Instalasi
-
-1. **Clone repository**
-
-   ```bash
-   git clone https://github.com/zidhanmf27/chatbot-kuliner-umkm-bandung.git
-   cd chatbot-kuliner-umkm-bandung
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Jalankan aplikasi**
-
-   ```bash
-   streamlit run app.py
-   ```
-
-4. **Akses aplikasi**
-
-   Buka browser dan akses `http://localhost:8501`
-
 ## 💡 Cara Penggunaan
 
 1. **Masukkan Query**: Ketik pertanyaan Anda dalam bahasa natural, contoh:
@@ -114,15 +64,15 @@ chatbot-kuliner/
 
 2. **Filter (Opsional)**: Gunakan sidebar untuk memfilter berdasarkan:
 
-   - Kategori harga (Murah/Mahal)
-   - Jenis makanan
+   - Kategori harga (Murah/Sedang/Mahal)
 
 3. **Lihat Hasil**: Sistem akan menampilkan 5 rekomendasi terbaik dengan:
    - Nama restoran
-   - Menu unggulan
+   - Alamat
+   - Menu
    - Harga
-   - Lokasi
-   - Link Google Maps
+   - Deskripsi
+   - Button ke Google Maps
 
 ## 🛠️ Teknologi
 
