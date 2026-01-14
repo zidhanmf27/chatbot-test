@@ -58,12 +58,20 @@ class TextPreprocessor:
         if not isinstance(text, str):
             return ""
         
+<<<<<<< HEAD
         text = text.lower()  # Case Folding
         text = re.sub(r'http\S+|www\S+|https\S+', '', text)  # Hapus URL
         text = re.sub(r'\S+@\S+', '', text)  # Hapus Email
         # text = re.sub(r'\d+', '', text)  # Hapus Angka (DINONAKTIFKAN: Banyak nama UMKM pakai angka)
         text = re.sub(r'[^a-z0-9\s]', ' ', text)  # Hapus Tanda Baca (Sisakan huruf & angka)
         text = re.sub(r'\s+', ' ', text)  # Hapus Spasi Ganda
+=======
+        text = text.lower() # Case Folding
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text) # Hapus URL
+        text = re.sub(r'\S+@\S+', '', text) # Hapus Email
+        text = re.sub(r'[^a-z0-9\s]', ' ', text) # Hapus Tanda Baca (Sisakan huruf & angka)
+        text = re.sub(r'\s+', ' ', text) # Hapus Spasi Ganda
+>>>>>>> b0245ed991ebf7f624d072005a3d19ef5bfdba2c
         return text.strip()
     
     def tokenize(self, text):

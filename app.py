@@ -102,14 +102,24 @@ st.markdown("""
 <div id="top-of-page"></div>
 """, unsafe_allow_html=True)
 
+<<<<<<< HEAD
 # Inisialisasi Chatbot Engine
 if 'chatbot_engine' not in st.session_state:
     dataset_path = os.path.join('dataset', 'dataset-kuliner-umkm-optimized.csv')
+=======
+# --- Inisialisasi State Aplikasi (Session Management) ---
+if 'chatbot_engine_v4' not in st.session_state:
+    dataset_path = os.path.join('dataset', 'data-kuliner-umkm-optimized.csv')
+>>>>>>> b0245ed991ebf7f624d072005a3d19ef5bfdba2c
     try:
         if not os.path.exists(dataset_path):
             st.error("Dataset not found!")
             st.stop()
+<<<<<<< HEAD
         st.session_state.chatbot_engine = load_chatbot(dataset_path)
+=======
+        st.session_state.chatbot_engine_v4 = load_chatbot_v3(dataset_path)
+>>>>>>> b0245ed991ebf7f624d072005a3d19ef5bfdba2c
         if 'messages' not in st.session_state:
             st.session_state.messages = []
         if 'show_scroll_btn' not in st.session_state:
@@ -130,7 +140,11 @@ if 'theme' not in st.session_state:
 with st.sidebar:
     # Data Sistem
     try:
+<<<<<<< HEAD
         total_umkm = len(st.session_state.chatbot_engine.df)
+=======
+        total_umkm = len(st.session_state.chatbot_engine_v4.df)
+>>>>>>> b0245ed991ebf7f624d072005a3d19ef5bfdba2c
     except:
         total_umkm = 0
         
@@ -185,7 +199,11 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header"><i class="fas fa-utensils"></i></div>', unsafe_allow_html=True)
     with st.expander("KATEGORI KULINER", expanded=True):
         if total_umkm > 0:
+<<<<<<< HEAD
             top_cats = st.session_state.chatbot_engine.df['kategori'].value_counts().head(10)
+=======
+            top_cats = st.session_state.chatbot_engine_v4.df['kategori'].value_counts().head(10)
+>>>>>>> b0245ed991ebf7f624d072005a3d19ef5bfdba2c
             st.markdown("<div class='sidebar-cat-list'>", unsafe_allow_html=True)
             for cat, count in top_cats.items():
                 st.markdown(f"<div class='sidebar-cat-item'><span>{cat}</span><span>{count}</span></div>", unsafe_allow_html=True)
@@ -291,7 +309,11 @@ if final_query:
     
     try:
         with st.spinner('Sedang mencari rekomendasi kuliner...'):
+<<<<<<< HEAD
             recommendations, warning_msg, corrected_query = st.session_state.chatbot_engine.get_recommendations(
+=======
+            recommendations, warning_msg = st.session_state.chatbot_engine_v4.get_recommendations(
+>>>>>>> b0245ed991ebf7f624d072005a3d19ef5bfdba2c
                 final_query, 
                 price_filter=backend_price,
                 top_n=50
