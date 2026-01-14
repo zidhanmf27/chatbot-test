@@ -1,12 +1,24 @@
+# ============================================================================
+# CHATBOT KULINER UMKM KOTA BANDUNG
+# ============================================================================
+# User Interface Streamlit
+# ============================================================================
+
+import os
+import time
+import urllib.parse
+
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import os
-import urllib.parse
+
 from chatbot_engine import ChatbotEngine
 
 
-# --- Konfigurasi Awal Halaman ---
+# ============================================================================
+# KONFIGURASI HALAMAN
+# ============================================================================
+
 st.set_page_config(
     page_title="Chatbot Kuliner UMKM Kota Bandung",
     page_icon="style/icon.png",
@@ -14,18 +26,74 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Fungsi Loading Resource ---
+
+# ============================================================================
+# FUNGSI HELPER
+# ============================================================================
+
 @st.cache_resource(show_spinner=False)
-def load_chatbot_v3(dataset_path):
+def load_chatbot(dataset_path):
     """Memuat instance chatbot engine dengan caching agar tidak di-reload setiap interaksi"""
     return ChatbotEngine(dataset_path)
+
 
 def load_css(file_name):
     """Memuat file CSS eksternal untuk styling khusus"""
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Memuat Style
+
+def get_category_icon(category_name):
+    """Mengembalikan ikon Font Awesome berdasarkan kategori kuliner"""
+    cat_lower = str(category_name).lower()
+    
+    icon_mapping = {
+        ('kopi', 'cafe', 'kafe', 'coffee'): "fa-mug-hot",
+        ('jepang', 'sushi', 'ramen', 'udon'): "fa-fish",
+        ('sunda', 'khas', 'tradisional'): "fa-leaf",
+        ('western', 'steak', 'burger', 'pizza', 'pasta'): "fa-burger",
+        ('roti', 'bakery', 'kue', 'cake', 'donat'): "fa-bread-slice",
+        ('ayam', 'bebek', 'geprek', 'fried chicken'): "fa-drumstick-bite",
+        ('mie', 'bakso', 'soto', 'sop', 'kuah'): "fa-bowl-food",
+        ('minuman', 'jus', 'thai tea', 'bobba'): "fa-glass-water",
+        ('nasi', 'padang', 'warteg'): "fa-utensils",
+        ('pedas', 'sambal'): "fa-fire",
+    }
+    
+    for keywords, icon in icon_mapping.items():
+        if any(keyword in cat_lower for keyword in keywords):
+            return icon
+    
+    return "fa-utensils"  # Default icon
+
+
+def inject_theme_script(theme):
+    """Inject JavaScript untuk mengubah tema secara real-time"""
+    timestamp = int(time.time() * 1000)
+    components.html(
+        f"""
+        <script>
+            (function() {{
+                const theme = '{theme}';
+                const htmlElement = window.parent.document.documentElement;
+                const currentTheme = htmlElement.getAttribute('data-theme');
+                
+                if (currentTheme !== theme) {{
+                    htmlElement.setAttribute('data-theme', theme);
+                    console.log('Theme changed from', currentTheme, 'to', theme, 'at', {timestamp});
+                }}
+            }})();
+        </script>
+        """,
+        height=0
+    )
+
+
+# ============================================================================
+# INISIALISASI APLIKASI
+# ============================================================================
+
+# Memuat Style CSS
 load_css('style/app.css')
 
 # Memuat Font Awesome untuk Ikon
@@ -34,14 +102,14 @@ st.markdown("""
 <div id="top-of-page"></div>
 """, unsafe_allow_html=True)
 
-# --- Inisialisasi State Aplikasi (Session Management) ---
-if 'chatbot_engine_v3' not in st.session_state:
-    dataset_path = os.path.join('dataset', 'data-kuliner-umkm-optimized.csv')
+# Inisialisasi Chatbot Engine
+if 'chatbot_engine' not in st.session_state:
+    dataset_path = os.path.join('dataset', 'dataset-kuliner-umkm-optimized.csv')
     try:
         if not os.path.exists(dataset_path):
             st.error("Dataset not found!")
             st.stop()
-        st.session_state.chatbot_engine_v3 = load_chatbot_v3(dataset_path)
+        st.session_state.chatbot_engine = load_chatbot(dataset_path)
         if 'messages' not in st.session_state:
             st.session_state.messages = []
         if 'show_scroll_btn' not in st.session_state:
@@ -50,16 +118,19 @@ if 'chatbot_engine_v3' not in st.session_state:
         st.error(f"Error loading chatbot: {e}")
         st.stop()
 
-# Inisialisasi tema di session state
+# Inisialisasi tema
 if 'theme' not in st.session_state:
     st.session_state.theme = 'dark'
 
 
+# ============================================================================
+# SIDEBAR
+# ============================================================================
 
-# --- Tampilan Sidebar ---
 with st.sidebar:
+    # Data Sistem
     try:
-        total_umkm = len(st.session_state.chatbot_engine_v3.df)
+        total_umkm = len(st.session_state.chatbot_engine.df)
     except:
         total_umkm = 0
         
@@ -79,7 +150,6 @@ with st.sidebar:
     # Toggle Tema
     st.markdown('<div class="sidebar-header"><i class="fas fa-palette"></i> TEMA</div>', unsafe_allow_html=True)
     
-    # Toggle switch untuk tema
     theme_options = {"🌙 Dark Mode": "dark", "☀️ Light Mode": "light"}
     selected_theme_label = st.radio(
         "Pilih Tema",
@@ -92,37 +162,16 @@ with st.sidebar:
     # Deteksi perubahan tema
     new_theme = theme_options[selected_theme_label]
     theme_changed = st.session_state.theme != new_theme
-    
-    # Update tema di session state
     st.session_state.theme = new_theme
     
     # Inject JavaScript untuk mengubah tema secara real-time
-    import time
-    timestamp = int(time.time() * 1000)  # milliseconds untuk uniqueness
-    components.html(
-        f"""
-        <script>
-            (function() {{
-                const theme = '{st.session_state.theme}';
-                const htmlElement = window.parent.document.documentElement;
-                const currentTheme = htmlElement.getAttribute('data-theme');
-                
-                if (currentTheme !== theme) {{
-                    htmlElement.setAttribute('data-theme', theme);
-                    console.log('Theme changed from', currentTheme, 'to', theme, 'at', {timestamp});
-                }}
-            }})();
-        </script>
-        """,
-        height=0
-    )
+    inject_theme_script(st.session_state.theme)
     
     # Rerun jika tema berubah untuk memastikan semua elemen terupdate
     if theme_changed:
         st.rerun()
 
-
-    # --- Bagian Preferensi Harga (Collapsible) ---
+    # Preferensi Harga
     st.markdown('<div class="sidebar-header"><i class="fas fa-dollar-sign"></i></div>', unsafe_allow_html=True)
     with st.expander("Preferensi Harga", expanded=True):
         selected_price = st.radio(
@@ -132,17 +181,17 @@ with st.sidebar:
             key="price_filter"
         )
 
-    # --- Bagian Kategori Kuliner (Collapsible) ---
+    # Kategori Kuliner
     st.markdown('<div class="sidebar-header"><i class="fas fa-utensils"></i></div>', unsafe_allow_html=True)
     with st.expander("KATEGORI KULINER", expanded=True):
         if total_umkm > 0:
-            top_cats = st.session_state.chatbot_engine_v3.df['kategori'].value_counts().head(10)
+            top_cats = st.session_state.chatbot_engine.df['kategori'].value_counts().head(10)
             st.markdown("<div class='sidebar-cat-list'>", unsafe_allow_html=True)
             for cat, count in top_cats.items():
                 st.markdown(f"<div class='sidebar-cat-item'><span>{cat}</span><span>{count}</span></div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-
+    # Tips Pencarian
     st.markdown("""
     <div class="tips-card">
         <div class="tips-header">
@@ -156,7 +205,11 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# --- Bagian Utama (Main Content) ---
+
+# ============================================================================
+# KONTEN UTAMA
+# ============================================================================
+
 # Hero Section
 st.markdown("""
 <div class="hero-container">
@@ -189,11 +242,13 @@ with st.form(key='search_form'):
     st.markdown('<div class="kirim-container">', unsafe_allow_html=True)
     submitted = st.form_submit_button("Kirim", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
+    
     st.markdown("""
     <div style="margin-bottom: 0.75rem; font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
         <i class="fas fa-bolt" style="color: #eab308;"></i> Pencarian Cepat
     </div>
     """, unsafe_allow_html=True)
+    
     st.markdown('<div class="quick-search-container">', unsafe_allow_html=True)
     q1, q2, q3, q4 = st.columns(4)
     with q1:
@@ -207,7 +262,10 @@ with st.form(key='search_form'):
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# --- Logika Pemrosesan Query ---
+# ============================================================================
+# LOGIKA PEMROSESAN QUERY
+# ============================================================================
+
 final_query = None
 
 if 'temp_query' in st.session_state and st.session_state.temp_query:
@@ -216,16 +274,16 @@ if 'temp_query' in st.session_state and st.session_state.temp_query:
 elif submitted and user_input_val:
     final_query = user_input_val
 elif quick_kopi:
-    final_query = "kopi murah"
+    final_query = "kopi"
 elif quick_ramen:
-    final_query = "ramen pedas"
+    final_query = "ramen"
 elif quick_sunda:
     final_query = "masakan sunda"
 elif quick_roti:
-    final_query = "toko roti"
+    final_query = "roti"
 
 if final_query:
-    st.session_state.show_scroll_btn = False # Reset tombol setiap kali searching baru
+    st.session_state.show_scroll_btn = False  # Reset tombol setiap kali searching baru
     st.session_state.messages.append({"role": "user", "content": final_query})
     
     price_map = {"Semua": "Semua", "Murah": "Murah", "Sedang": "Sedang", "Mahal": "Mahal"}
@@ -233,17 +291,16 @@ if final_query:
     
     try:
         with st.spinner('Sedang mencari rekomendasi kuliner...'):
-            recommendations, warning_msg = st.session_state.chatbot_engine_v3.get_recommendations(
+            recommendations, warning_msg, corrected_query = st.session_state.chatbot_engine.get_recommendations(
                 final_query, 
                 price_filter=backend_price,
                 top_n=50
             )
         
-        # Warning sudah diextract langsung dari tuple
-        
         st.session_state.messages.append({
             "role": "bot",
-            "content": final_query,
+            "content": final_query, # Tetap simpan input asli user untuk history chat
+            "corrected_content": corrected_query, # Simpan query hasil koreksi untuk display
             "full_recommendations": recommendations,
             "display_count": 5,
             "warning": warning_msg
@@ -252,7 +309,11 @@ if final_query:
     except Exception as e:
         st.error(f"Terjadi kesalahan: {str(e)}")
 
-# --- Tampilan Hasil Rekomendasi ---
+
+# ============================================================================
+# TAMPILAN HASIL REKOMENDASI
+# ============================================================================
+
 if len(st.session_state.messages) > 0:
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True) 
     
@@ -276,7 +337,7 @@ if len(st.session_state.messages) > 0:
             st.markdown(f"""
             <div class="results-container">
                 <div class="results-header-container">
-                    <h3 class="results-header-title"><i class="fas fa-check-circle" style="color:var(--success);"></i> Berikut Rekomendasi untuk "{message['content']}"</h3>
+                    <h3 class="results-header-title"><i class="fas fa-check-circle" style="color:var(--success);"></i> Berikut Rekomendasi untuk "{message.get('corrected_content', message['content'])}"</h3>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -284,13 +345,9 @@ if len(st.session_state.messages) > 0:
             display_count = message.get('display_count', 5)
             
             if full_recs is not None and not full_recs.empty:
-
-
-                
-                # [BARU] Tampilkan warning jika ada (dari field terpisah)
+                # Tampilkan warning jika ada
                 warning_msg = message.get('warning')
                 if warning_msg:
-                    # [STYLE UPDATE] Menyamakan lebar warning dengan kartu rekomendasi
                     st.markdown(f"""
                     <div style="width: 95%; max-width: 820px; margin: 0 auto 1rem auto; padding: 0.75rem 1rem; background-color: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 8px; color: #eab308; font-size: 0.9rem; display: flex; align-items: start; gap: 0.5rem;">
                         <i class="fas fa-exclamation-triangle" style="margin-top: 3px;"></i>
@@ -300,24 +357,9 @@ if len(st.session_state.messages) > 0:
                 
                 current_view = full_recs.iloc[:display_count]
                 
+                # Render kartu rekomendasi
                 for _, row in current_view.iterrows():
                     similarity = row['similarity_score'] * 100
-                    
-                    def get_category_icon(cat_name):
-                        cat_lower = str(cat_name).lower()
-                        if any(x in cat_lower for x in ['kopi', 'cafe', 'kafe', 'coffee']): return "fa-mug-hot"
-                        if any(x in cat_lower for x in ['jepang', 'sushi', 'ramen', 'udon']): return "fa-fish"
-                        if any(x in cat_lower for x in ['sunda', 'khas', 'tradisional']): return "fa-leaf"
-                        if any(x in cat_lower for x in ['western', 'steak', 'burger', 'pizza', 'pasta']): return "fa-burger"
-                        if any(x in cat_lower for x in ['roti', 'bakery', 'kue', 'cake', 'donat']): return "fa-bread-slice"
-                        if any(x in cat_lower for x in ['ayam', 'bebek', 'geprek', 'fried chicken']): return "fa-drumstick-bite"
-                        if any(x in cat_lower for x in ['mie', 'bakso', 'soto', 'sop', 'kuah']): return "fa-bowl-food"
-                        if any(x in cat_lower for x in ['minuman', 'jus', 'thai tea', 'bobba']): return "fa-glass-water"
-                        if any(x in cat_lower for x in ['nasi', 'padang', 'warteg']): return "fa-utensils"
-                        if any(x in cat_lower for x in ['pedas', 'sambal']): return "fa-fire"
-                        if 'pedas' in cat_lower: return "fa-fire"
-                        return "fa-utensils"
-
                     icon_class = get_category_icon(row['kategori'])
                     
                     # Generate Google Maps URL
@@ -363,7 +405,11 @@ if len(st.session_state.messages) > 0:
                 </div>
                 """, unsafe_allow_html=True)
 
-# --- Bagian Pencarian Ulang di Bawah ---
+
+# ============================================================================
+# PENCARIAN ULANG
+# ============================================================================
+
 if len(st.session_state.messages) > 0:
     st.markdown("<div style='text-align:center; margin-top:1rem; margin-bottom:0.5rem; font-size:1rem; color:var(--text-secondary);'>Ingin mencari yang lain?</div>", unsafe_allow_html=True)
     st.markdown('<div class="bottom-search-wrapper">', unsafe_allow_html=True)
@@ -381,7 +427,11 @@ if len(st.session_state.messages) > 0:
         st.session_state.temp_query = user_input_bottom
         st.rerun()
 
-# --- Fitur Hapus Riwayat ---
+
+# ============================================================================
+# HAPUS RIWAYAT CHAT
+# ============================================================================
+
 if len(st.session_state.messages) > 0:
     st.markdown("---")
     c1, c2, c3 = st.columns([1, 1, 1])
@@ -392,7 +442,11 @@ if len(st.session_state.messages) > 0:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Scroll to Top Button (Conditional Render) ---
+
+# ============================================================================
+# SCROLL TO TOP BUTTON
+# ============================================================================
+
 # Tombol muncul jika user telah mengklik 'Lebih Banyak' ATAU sudah melakukan pencarian lebih dari sekali
 if st.session_state.get('show_scroll_btn', False) or len(st.session_state.messages) > 2:
     st.markdown("""
@@ -405,7 +459,10 @@ if st.session_state.get('show_scroll_btn', False) or len(st.session_state.messag
     """, unsafe_allow_html=True)
 
 
-# --- Footer ---
+# ============================================================================
+# FOOTER
+# ============================================================================
+
 st.markdown("""
 <div class="footer-text">
     <p><i class="fas fa-gear"></i> Metode TF-IDF dan Cosine Similarity</p>
@@ -413,3 +470,4 @@ st.markdown("""
     <p style="margin-top:0.5rem; opacity:0.8;"><i class="fas fa-code"></i> Developed by <a href="https://zidhanmf-portofolio.vercel.app/" target="_blank" style="color: var(--accent-blue); font-weight: 600;">zidhanmf</a></p>
 </div>
 """, unsafe_allow_html=True)
+# reload trigger
