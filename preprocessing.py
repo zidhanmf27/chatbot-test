@@ -1,9 +1,6 @@
 # ============================================================================
 # TEXT PREPROCESSING MODULE
 # ============================================================================
-# Pemrosesan Input User: Menangani Case Folding, Cleaning, Tokenizing,
-# Stopword Removal, dan Stemming menggunakan Sastrawi.
-# ============================================================================
 
 import re
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
@@ -15,14 +12,19 @@ from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFacto
 # ============================================================================
 
 CULINARY_STOPWORDS = {
-    'makan', 'makanan', 'minum', 'minuman', 'kuliner', 'masak', 'masakan', 
+    'makan', 'makanan', 
+    'minum', 'minuman', 
+    'kuliner', 'masak', 'masakan', 
     'tempat', 'resto', 'restoran', 'warung', 'kafe', 'cafe', 'kedai',
-    'cari', 'mau', 'ingin', 'tolong', 'rekomendasi', 'rekomendasiin',
-    'daerah', 'wilayah', 'sekitar', 'dekat', 'deket',
-    'nya', 'dong', 'sih', 'tuh', 'nih', 'banget', 'sangat',
-    'buat', 'untuk', 'yg', 'yang', 'dgn', 'dengan'
+    'cari', 'mau', 'ingin', 'tolong', 'rekomendasi', 'rekomendasiin', 'minta', 'bantu', 'kasih', 'info', 'spill',
+    'daerah', 'wilayah', 'sekitar', 'dekat', 'deket', 'kawasan',
+    'nya', 'dong', 'sih', 'tuh', 'nih', 'banget', 'sangat', 'paling', 'bgt',
+    'buat', 'untuk', 'yg', 'yang', 'dgn', 'dengan', 'dan', 'atau', 'di', 'ke', 'dari',
+    'enak', 'lezat', 'nikmat', 'mantap', 'bagus', 'terbaik', 'populer', 'favorit',
+    'hits', 'viral', 'kekinian', 'legend',
+    'halo', 'hai', 'hi', 'pagi', 'siang', 'malam', 'sore',
+    'kak', 'min', 'gan', 'sis', 'bro', 'pak', 'bu', 'mas', 'mba'
 }
-
 
 # ============================================================================
 # TEXT PREPROCESSOR CLASS
@@ -49,48 +51,32 @@ class TextPreprocessor:
         stopwords.update(CULINARY_STOPWORDS)
         return stopwords
     
-    ## Proses Preprocessing
     def clean_text(self, text):
-        """
-        Case Folding & Cleaning: Mengubah teks menjadi huruf kecil dan 
-        membersihkan karakter yang tidak diinginkan seperti angka, simbol, dan URL.
-        """
+        """Case Folding & Cleaning"""
         if not isinstance(text, str):
             return ""
         
-        text = text.lower()  # Case Folding
-        text = re.sub(r'http\S+|www\S+|https\S+', '', text)  # Hapus URL
-        text = re.sub(r'\S+@\S+', '', text)  # Hapus Email
-        # text = re.sub(r'\d+', '', text)  # Hapus Angka (DINONAKTIFKAN: Banyak nama UMKM pakai angka)
-        text = re.sub(r'[^a-z0-9\s]', ' ', text)  # Hapus Tanda Baca (Sisakan huruf & angka)
-        text = re.sub(r'\s+', ' ', text)  # Hapus Spasi Ganda
+        text = text.lower()
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text)
+        text = re.sub(r'\S+@\S+', '', text)
+        text = re.sub(r'[^a-z0-9\s]', ' ', text)
+        text = re.sub(r'\s+', ' ', text)
         return text.strip()
     
     def tokenize(self, text):
-        """
-        Tokenizing: Memecah kalimat menjadi daftar kata-kata terpisah (list of tokens).
-        """
+        """Tokenizing: Memecah kalimat menjadi list of tokens"""
         return text.split()
     
     def remove_stopwords(self, tokens):
-        """
-        Stopword Removal: Menghapus kata-kata umum yang tidak bermakna spesifik 
-        (seperti 'yang', 'dan', 'di') agar analisis lebih fokus.
-        """
+        """Stopword Removal"""
         return [word for word in tokens if word not in self.stopwords]
     
     def stem_tokens(self, tokens):
-        """
-        Stemming: Mengubah setiap kata menjadi bentuk dasarnya 
-        (misal: 'memakan' -> 'makan') menggunakan algoritma Sastrawi.
-        """
+        """Stemming menggunakan Sastrawi"""
         return [self.stemmer.stem(word) for word in tokens]
     
     def preprocess(self, text):
-        """
-        Pipeline Preprocessing Lengkap: Menjalankan semua tahapan 
-        cleaning hingga stemming secara berurutan.
-        """
+        """Pipeline Preprocessing Lengkap"""
         text = self.clean_text(text)
         tokens = self.tokenize(text)
         tokens = self.remove_stopwords(tokens)
@@ -98,9 +84,6 @@ class TextPreprocessor:
         return " ".join(tokens)
     
     def preprocess_dataframe_column(self, df, column_name):
-        """
-        Preprocessing untuk kolom DataFrame.
-        Menerapkan preprocessing pada setiap baris di kolom yang ditentukan.
-        """
+        """Preprocessing untuk kolom DataFrame"""
         print("[INFO] Sedang memproses data...")
         return df[column_name].apply(lambda x: self.preprocess(str(x)))
