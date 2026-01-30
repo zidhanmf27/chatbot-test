@@ -64,29 +64,8 @@ def get_category_icon(category_name):
         if any(keyword in cat_lower for keyword in keywords):
             return icon
     
-    return "fa-utensils"  # Ikon default
+    return "fa-utensils"
 
-
-def inject_theme_script(theme):
-    """Menyisipkan JavaScript untuk mengubah tema secara real-time"""
-    timestamp = int(time.time() * 1000)
-    components.html(
-        f"""
-        <script>
-            (function() {{
-                const theme = '{theme}';
-                const htmlElement = window.parent.document.documentElement;
-                const currentTheme = htmlElement.getAttribute('data-theme');
-                
-                if (currentTheme !== theme) {{
-                    htmlElement.setAttribute('data-theme', theme);
-                    console.log('Theme changed from', currentTheme, 'to', theme, 'at', {timestamp});
-                }}
-            }})();
-        </script>
-        """,
-        height=0
-    )
 
 
 # ============================================================================
@@ -118,10 +97,6 @@ if 'chatbot_engine' not in st.session_state:
         st.error(f"Error memuat chatbot: {e}")
         st.stop()
 
-# Inisialisasi tema
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark'
-
 
 # ============================================================================
 # SIDEBAR
@@ -141,35 +116,11 @@ with st.sidebar:
         <span class="stat-value">{total_umkm}</span>
         <div class="stat-status">
             <div class="status-dot"></div>
-            <span>Database Aktif</span>
+            <span>Data Tersedia</span>
         </div>
         <i class="fas fa-store" style="position: absolute; right: -10px; bottom: -10px; font-size: 5rem; opacity: 0.1; color: white;"></i>
     </div>
     """, unsafe_allow_html=True)
-
-    # Toggle Tema
-    st.markdown('<div class="sidebar-header"><i class="fas fa-palette"></i> TEMA</div>', unsafe_allow_html=True)
-    
-    theme_options = {"🌙 Dark Mode": "dark", "☀️ Light Mode": "light"}
-    selected_theme_label = st.radio(
-        "Pilih Tema",
-        options=list(theme_options.keys()),
-        index=0 if st.session_state.theme == 'dark' else 1,
-        key="theme_selector",
-        label_visibility="collapsed"
-    )
-    
-    # Deteksi perubahan tema
-    new_theme = theme_options[selected_theme_label]
-    theme_changed = st.session_state.theme != new_theme
-    st.session_state.theme = new_theme
-    
-    # Inject JavaScript untuk mengubah tema secara real-time
-    inject_theme_script(st.session_state.theme)
-    
-    # Rerun jika tema berubah untuk memastikan semua elemen terupdate
-    if theme_changed:
-        st.rerun()
 
     # Preferensi Harga
     st.markdown('<div class="sidebar-header"><i class="fas fa-dollar-sign"></i></div>', unsafe_allow_html=True)
@@ -252,13 +203,13 @@ with st.form(key='search_form'):
     st.markdown('<div class="quick-search-container">', unsafe_allow_html=True)
     q1, q2, q3, q4 = st.columns(4)
     with q1:
-        quick_kopi = st.form_submit_button("Kopi", type="secondary", use_container_width=True)
+        quick_kopi = st.form_submit_button("Kopi", type="secondary", use_container_width=True, key="btn_q_kopi")
     with q2:
-        quick_ramen = st.form_submit_button("Ramen", type="secondary", use_container_width=True)
+        quick_ramen = st.form_submit_button("Ramen", type="secondary", use_container_width=True, key="btn_q_ramen")
     with q3:
-        quick_sunda = st.form_submit_button("Masakan Sunda", type="secondary", use_container_width=True)
+        quick_sate = st.form_submit_button("Sate", type="secondary", use_container_width=True, key="btn_q_sate")
     with q4:
-        quick_roti = st.form_submit_button("Roti", type="secondary", use_container_width=True)
+        quick_roti = st.form_submit_button("Roti", type="secondary", use_container_width=True, key="btn_q_roti")
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -277,8 +228,8 @@ elif quick_kopi:
     final_query = "kopi"
 elif quick_ramen:
     final_query = "ramen"
-elif quick_sunda:
-    final_query = "masakan sunda"
+elif quick_sate:
+    final_query = "Sate"
 elif quick_roti:
     final_query = "roti"
 
@@ -303,8 +254,10 @@ if final_query:
             "corrected_content": corrected_query, # Simpan query hasil koreksi untuk tampilan
             "full_recommendations": recommendations,
             "display_count": 5,
+            "display_count": 5,
             "warning": warning_msg
         })
+        
         
     except Exception as e:
         st.error(f"Terjadi kesalahan: {str(e)}")
@@ -365,6 +318,11 @@ if len(st.session_state.messages) > 0:
                     # Generate Google Maps URL
                     maps_query = urllib.parse.quote(f"{row['nama_rumah_makan']} {row['alamat']}")
                     maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
+                    # Gunakan URL embed legacy yang tidak memerlukan API Key
+                    embed_url = f"https://maps.google.com/maps?q={maps_query}&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                    
+                    # Generate unique ID untuk setiap modal
+                    modal_id = f"map-modal-{idx}-{_}"
                     
                     st.markdown(f"""
 <div class="recommendation-card">
@@ -378,16 +336,40 @@ if len(st.session_state.messages) > 0:
     <p><i class="fas fa-utensils icon-fixed-width"></i> <strong>Menu:</strong> {row['menu']}</p>
     <p><i class="fas fa-comments icon-fixed-width"></i> <strong>Deskripsi:</strong> {row['deskripsi']}</p>
     <div style="margin-top: 1rem;">
-        <a href="{maps_url}" target="_blank" style="text-decoration: none; display: block;">
-            <div style="background: linear-gradient(90deg, #2563eb, #3b82f6); color: white; padding: 0.6rem 1rem; border-radius: 10px; text-align: center; font-weight: 600; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                <i class="fas fa-location-dot"></i> Lihat Lokasi di Google Maps
+        <div class="map-popup-trigger" data-modal-id="{modal_id}" data-embed-url="{embed_url}">
+            <i class="fas fa-location-dot"></i> Lihat Lokasi di Google Maps
+        </div>
+    </div>
+</div>
+
+<!-- Modal Popup -->
+<div id="{modal_id}" class="map-modal-overlay">
+    <div class="map-modal-content">
+        <div class="map-modal-header">
+            <div class="map-modal-title">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Preview Lokasi</span>
             </div>
-        </a>
+            <div class="map-modal-close" data-close-modal="{modal_id}" title="Tutup">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <div class="map-preview-container">
+            <iframe id="map-iframe-{modal_id}" src="" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <div class="map-modal-actions">
+            <a href="{maps_url}" target="_blank" class="map-modal-btn map-modal-btn-expand" style="text-decoration: none; color: white; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-up-right-from-square"></i>
+                Expand Map
+            </a>
+            <div class="map-modal-btn map-modal-btn-close" data-close-modal="{modal_id}">
+                <i class="fas fa-xmark"></i>
+                Close
+            </div>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
-
-
                 
                 if len(full_recs) > display_count:
                     st.markdown('<div class="load-more-wrapper">', unsafe_allow_html=True)
@@ -401,7 +383,7 @@ if len(st.session_state.messages) > 0:
             else:
                 st.markdown("""
                 <div style="max-width: 820px; width: 95%; margin: 0 auto; padding: 0.75rem 1.25rem; background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; color: #ef4444; display: flex; align-items: center; gap: 0.75rem; font-weight: 500;">
-                    <i class="fas fa-circle-xmark" style="font-size: 1.1rem;"></i> Tidak ada rekomendasi yang ditemukan untuk kriteria ini.
+                    <i class="fas fa-circle-xmark" style="font-size: 1.1rem;"></i> Waduh, belum nemu kuliner yang cocok sama pencarian kamu nih. Coba pakai kata kunci lain ya!
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -414,7 +396,7 @@ if len(st.session_state.messages) > 0:
     st.markdown("<div style='text-align:center; margin-top:1rem; margin-bottom:0.5rem; font-size:1rem; color:var(--text-secondary);'>Ingin mencari yang lain?</div>", unsafe_allow_html=True)
     st.markdown('<div class="bottom-search-wrapper">', unsafe_allow_html=True)
     with st.form(key='search_form_bottom'):
-        c_b1, c_b2 = st.columns([4, 1], gap="medium")
+        c_b1, c_b2 = st.columns([3, 1], gap="medium")
         with c_b1:
             user_input_bottom = st.text_input("Search Bottom", placeholder="Cari kuliner lain...", label_visibility="collapsed")
         with c_b2:
@@ -452,8 +434,8 @@ if st.session_state.get('show_scroll_btn', False) or len(st.session_state.messag
     st.markdown("""
     <a href="#top-of-page" class="scroll-to-top-btn" title="Kembali ke atas">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="19" x2="12" y2="5"></line>
-            <polyline points="5 12 12 5 19 12"></polyline>
+        <line x1="12" y1="19" x2="12" y2="5"></line>
+        <polyline points="5 12 12 5 19 12"></polyline>
         </svg>
     </a>
     """, unsafe_allow_html=True)
@@ -470,4 +452,118 @@ st.markdown("""
     <p style="margin-top:0.5rem; opacity:0.8;"><i class="fas fa-code"></i> Developed by <a href="https://zidhanmf-portofolio.vercel.app/" target="_blank" style="color: var(--accent-blue); font-weight: 600;">zidhanmf</a></p>
 </div>
 """, unsafe_allow_html=True)
-# reload trigger
+
+# ============================================================================
+# JAVASCRIPT UNTUK MAP MODAL (MUTATION OBSERVER VERSION)
+# ============================================================================
+
+components.html("""
+<script>
+(function() {
+    const parentDoc = window.parent.document;
+    
+    // Fungsi log
+    function log(msg) { console.log("[MapModal] " + msg); }
+    
+    // Setup MutationObserver untuk memantau perubahan DOM
+    // Ini penting karena Streamlit sering merender ulang komponen
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                attachEventListeners();
+            }
+        });
+    });
+    
+    // Mulai observe body
+    observer.observe(parentDoc.body, { childList: true, subtree: true });
+    
+    // Fungsi untuk memasang event listeners ke elemen yang baru dibuat
+    function attachEventListeners() {
+        // Cari semua trigger button yang belum diproses
+        const triggers = parentDoc.querySelectorAll('.map-popup-trigger:not([data-bound])');
+        triggers.forEach(function(btn) {
+            btn.setAttribute('data-bound', 'true'); // Tandai sudah diproses
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const modalId = btn.getAttribute('data-modal-id');
+                const embedUrl = btn.getAttribute('data-embed-url');
+                openModal(modalId, embedUrl);
+            });
+        });
+
+        // Cari semua tombol close yang belum diproses
+        const closes = parentDoc.querySelectorAll('.map-modal-close:not([data-bound]), .map-modal-btn-close:not([data-bound])');
+        closes.forEach(function(btn) {
+            btn.setAttribute('data-bound', 'true');
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const modalId = btn.getAttribute('data-close-modal');
+                closeModal(modalId);
+            });
+        });
+        
+        // Cari overlay untuk klik di luar modal
+        const overlays = parentDoc.querySelectorAll('.map-modal-overlay:not([data-bound])');
+        overlays.forEach(function(overlay) {
+            overlay.setAttribute('data-bound', 'true');
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    closeModal(overlay.id);
+                }
+            });
+        });
+    }
+    
+    function openModal(modalId, embedUrl) {
+        const modal = parentDoc.getElementById(modalId);
+        if (!modal) return;
+        
+        const iframe = parentDoc.getElementById('map-iframe-' + modalId);
+        if (iframe) {
+            iframe.src = embedUrl;
+        }
+        
+        modal.style.display = 'flex';
+        // Force reflow
+        void modal.offsetWidth;
+        modal.classList.add('active');
+        parentDoc.body.style.overflow = 'hidden';
+    }
+    
+    function closeModal(modalId) {
+        const modal = parentDoc.getElementById(modalId);
+        if (!modal) return;
+        
+        modal.classList.remove('active');
+        setTimeout(() => {
+            if (!modal.classList.contains('active')) {
+                modal.style.display = 'none';
+                const iframe = parentDoc.getElementById('map-iframe-' + modalId);
+                if (iframe) iframe.src = '';
+            }
+        }, 300); // Sesuaikan dengan durasi transisi CSS
+        
+        parentDoc.body.style.overflow = 'auto';
+    }
+    
+    // Initial attach
+    setTimeout(attachEventListeners, 1000);
+    setTimeout(attachEventListeners, 3000);
+    
+    // Handle ESC key
+    parentDoc.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const activeModal = parentDoc.querySelector('.map-modal-overlay.active');
+            if (activeModal) {
+                closeModal(activeModal.id);
+            }
+        }
+    });
+    
+    log("Script loaded and observer started");
+})();
+</script>
+""", height=0)
