@@ -203,13 +203,13 @@ with st.form(key='search_form'):
     st.markdown('<div class="quick-search-container">', unsafe_allow_html=True)
     q1, q2, q3, q4 = st.columns(4)
     with q1:
-        quick_kopi = st.form_submit_button("Kopi", type="secondary", use_container_width=True, key="btn_q_kopi")
+        quick_kopi = st.form_submit_button("Kopi", type="secondary", use_container_width=True)
     with q2:
-        quick_ramen = st.form_submit_button("Ramen", type="secondary", use_container_width=True, key="btn_q_ramen")
+        quick_ramen = st.form_submit_button("Ramen", type="secondary", use_container_width=True)
     with q3:
-        quick_sate = st.form_submit_button("Sate", type="secondary", use_container_width=True, key="btn_q_sate")
+        quick_sate = st.form_submit_button("Sate", type="secondary", use_container_width=True)
     with q4:
-        quick_roti = st.form_submit_button("Roti", type="secondary", use_container_width=True, key="btn_q_roti")
+        quick_roti = st.form_submit_button("Roti", type="secondary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
